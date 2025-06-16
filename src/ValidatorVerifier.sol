@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import { SSZ } from "./SSZ.sol";
+import {SSZ} from "./SSZ.sol";
 
 contract ValidatorVerifier {
     address public constant BEACON_ROOTS =
@@ -26,7 +26,7 @@ contract ValidatorVerifier {
         SSZ.Validator calldata validator,
         uint64 validatorIndex,
         uint64 ts
-    ) public {
+    ) public view returns (bool) {
         require(
             validatorIndex < VALIDATOR_REGISTRY_LIMIT,
             "validator index out of range"
@@ -36,27 +36,16 @@ contract ValidatorVerifier {
         bytes32 validatoRoot = SSZ.validatorHashTreeRoot(validator);
         bytes32 blockRoot = getParentBlockRoot(ts);
 
-        require(
-            // forgefmt: disable-next-item
-            SSZ.verifyProof(
-                validatorProof,
-                blockRoot,
-                validatoRoot,
-                gI
-            ),
-            "invalid validator proof"
-        );
-
-        emit Accepted(validatorIndex);
+        // forgefmt: disable-next-item
+        return SSZ.verifyProof(validatorProof, blockRoot, validatoRoot, gI);
     }
 
-    function getParentBlockRoot(uint64 ts)
-        internal
-        view
-        returns (bytes32 root)
-    {
-        (bool success, bytes memory data) =
-            BEACON_ROOTS.staticcall(abi.encode(ts));
+    function getParentBlockRoot(
+        uint64 ts
+    ) internal view returns (bytes32 root) {
+        (bool success, bytes memory data) = BEACON_ROOTS.staticcall(
+            abi.encode(ts)
+        );
 
         if (!success || data.length == 0) {
             revert RootNotFound();
