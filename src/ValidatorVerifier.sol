@@ -7,6 +7,14 @@ contract ValidatorVerifier {
     address public constant BEACON_ROOTS =
         0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
+    event ValidatorProven(
+        uint256 gIndex,
+        uint256 validatorIndex,
+        bytes32 blockRoot,
+        bytes32 validatorRoot,
+        bool isValid
+    );
+
     uint64 constant VALIDATOR_REGISTRY_LIMIT = 2 ** 40;
 
     /// @dev Generalized index of the first validator struct root in the
@@ -26,7 +34,7 @@ contract ValidatorVerifier {
         SSZ.Validator calldata validator,
         uint64 validatorIndex,
         uint64 ts
-    ) public view returns (bool) {
+    ) public returns (bool) {
         require(
             validatorIndex < VALIDATOR_REGISTRY_LIMIT,
             "validator index out of range"
@@ -35,9 +43,21 @@ contract ValidatorVerifier {
         uint256 gI = gIndex + validatorIndex;
         bytes32 validatoRoot = SSZ.validatorHashTreeRoot(validator);
         bytes32 blockRoot = getParentBlockRoot(ts);
+        bool isValid = SSZ.verifyProof(
+            validatorProof,
+            blockRoot,
+            validatoRoot,
+            gI
+        );
 
-        // forgefmt: disable-next-item
-        return SSZ.verifyProof(validatorProof, blockRoot, validatoRoot, gI);
+        emit ValidatorProven(
+            gIndex,
+            validatorIndex,
+            blockRoot,
+            validatoRoot,
+            isValid
+        );
+        return isValid;
     }
 
     function getParentBlockRoot(

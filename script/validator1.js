@@ -74,6 +74,7 @@ async function main(slot = 'finalized', validatorIndex = 0) {
 
     console.log(`Generating validator info proof`);
     const validatorProof = createProof(tree.rootNode, { type: ProofType.single, gindex: genIndexValidatorInfo });
+    console.log(validatorProof.witnesses.map(toHex));
 
     // Get the balance container root from the state view.
     const balanceContainerRoot = stateView.balances.hashTreeRoot();
@@ -117,13 +118,13 @@ async function main(slot = 'finalized', validatorIndex = 0) {
     });
 
     // // Sanity check: verify gIndex and proof match.
-    console.log(`Verifying proof`);
-    verifyProof(
-        blockRoot,
-        genIndexValidatorInfo,
-        validatorProof.witnesses,
-        stateView.validators.get(validatorIndex).hashTreeRoot()
-    );
+    // console.log(`Verifying proof`);
+    // verifyProof(
+    //     blockRoot,
+    //     genIndexValidatorInfo,
+    //     validatorProof.witnesses,
+    //     stateView.validators.get(validatorIndex).hashTreeRoot()
+    // );
 
     // // Since EIP-4788 stores parentRoot, we have to find the descendant block of
     // // the block from the state.
@@ -159,4 +160,4 @@ async function main(slot = 'finalized', validatorIndex = 0) {
     };
 }
 
-main(25600, 0).then(console.log).catch(console.error);
+main(29300, 0).then(console.log).catch(console.error);
