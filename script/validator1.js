@@ -8,8 +8,6 @@ import { toHex, verifyProof } from './utils.js';
 const BeaconState = ssz.electra.BeaconState;
 const BeaconBlock = ssz.electra.BeaconBlock;
 
-// * NOTE: gIndex 393625163186355 or 41781442298035
-
 /**
  * @param {string|number} slot
  * @param {number} validatorIndex
@@ -65,14 +63,8 @@ async function main(slot = 'finalized', validatorIndex = 0) {
         stateView.type.getPathInfo(['validators', validatorIndex]).gindex,
     ]);
     console.log(`State root gen index in block view: ${stateRootGIndex}`);
-    // console.log(
-    //     `gen index for validator ${validatorIndex} in state view  : ${
-    //         stateView.type.getPathInfo(['validators', validatorIndex]).gindex
-    //     }`
-    // );
-    // console.log(`gen index for validator ${validatorIndex} in combined tree: ${genIndexValidatorInfo}`);
+    console.log({ genIndexValidatorInfo });
 
-    console.log(`Generating validator info proof`);
     const validatorProof = createProof(tree.rootNode, { type: ProofType.single, gindex: genIndexValidatorInfo });
     console.log(validatorProof.witnesses.map(toHex));
 
@@ -101,55 +93,21 @@ async function main(slot = 'finalized', validatorIndex = 0) {
     const balancesTree = tree.getSubtree(genIndexBalancesContainer);
     console.log(`Balances sub tree root: ${toHex(balancesTree.root)}`);
 
-    // Get balance root
-    const balanceRoot = tree.getRoot(genIndexBalanceInBlock);
-    console.log(`Balance root: ${toHex(balanceRoot)}`);
-
-    console.log(`Generating balances container proof`);
-    const balancesContainerProof = createProof(tree.rootNode, {
-        type: ProofType.single,
-        gindex: genIndexBalancesContainer,
-    });
-
-    console.log(`Generating balance proof`);
-    const balanceProof = createProof(tree.rootNode, {
-        type: ProofType.single,
-        gindex: genIndexBalanceInBlock,
-    });
-
-    // // Sanity check: verify gIndex and proof match.
-    // console.log(`Verifying proof`);
-    // verifyProof(
-    //     blockRoot,
-    //     genIndexValidatorInfo,
-    //     validatorProof.witnesses,
-    //     stateView.validators.get(validatorIndex).hashTreeRoot()
-    // );
-
-    // // Since EIP-4788 stores parentRoot, we have to find the descendant block of
-    // // the block from the state.
-    // console.log(`Fetching block header for parentRoot: ${toHex(blockRoot)}`);
-    // // FIXME this is not working for some reason. It getting for the latest slot which is the default behavior of the API.
-    // const nextBlockHeaderRes = await client.beacon.getBlockHeaders({ parentRoot: blockRoot });
-    // console.log(nextBlockHeaderRes);
-    // if (!nextBlockHeaderRes.ok) {
-    //     throw nextBlockHeaderRes.error;
-    // }
-
-    // // /** @type {import('@lodestar/types/lib/phase0/types.js').SignedBeaconBlockHeader} */
-    // const nextBlockHeader = nextBlockHeaderRes.value()[0]?.header;
-    // console.log(`Parent block slot ${nextBlockHeader.message.slot}`);
-    // console.log(`Parent block parent root: ${toHex(nextBlockHeader.message.parentRoot)}`);
-    // if (!nextBlockHeader) {
-    //     throw new Error('No block to fetch timestamp from');
-    // }
+    // * save data to json file
+    let data = transformValidatorData(validatorProof, stateView, validatorIndex, slot, client);
+    let json = JSON.stringify(data, null, 2);
+    // * remove the quote from the value corresponding to 6__exit_epoch and 7__withdrawable_epoch
+    json = json
+        .replace(/"\$6__exit_epoch":\s*"(\d{20})"/, '"$6__exit_epoch": $1')
+        .replace(/"\$7__withdrawable_epoch":\s*"(\d{20})"/, '"$7__withdrawable_epoch": $1');
+    fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
 
     return {
         blockRoot: toHex(blockRoot),
-        // proof: validatorProof.witnesses.map(toHex),
+        proof: validatorProof.witnesses.map(toHex),
         balanceContainerRoot: toHex(balanceContainerRoot),
-        balancesContainerProof: balancesContainerProof.witnesses.map(toHex),
-        balanceProof: balanceProof.witnesses.map(toHex),
+        // balancesContainerProof: balancesContainerProof.witnesses.map(toHex),
+        // balanceProof: balanceProof.witnesses.map(toHex),
         validatorIndex,
         validatorBalance: validatorBalance,
         validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
@@ -157,7 +115,28 @@ async function main(slot = 'finalized', validatorIndex = 0) {
         // genIndexValidatorInfo,
         genIndexBalancesContainer,
         genIndexBalanceInBlock,
+        timestamp: client.slotToTS(slot + 1),
     };
 }
 
-main(29300, 0).then(console.log).catch(console.error);
+function transformValidatorData(validatorProof, stateView, validatorIndex, slot, client) {
+    const validator = stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex));
+
+    return {
+        $0__proof: validatorProof.witnesses.map(toHex),
+        $1__validator: {
+            $0__pubkey: validator.pubkey,
+            $1__withdrawal_credentials: validator.withdrawal_credentials,
+            $2__effective_balance: Number(validator.effective_balance),
+            $3__slashed: validator.slashed,
+            $4__activation_eligibility_epoch: Number(validator.activation_eligibility_epoch),
+            $5__activation_epoch: Number(validator.activation_epoch),
+            $6__exit_epoch: validator.exit_epoch,
+            $7__withdrawable_epoch: validator.withdrawable_epoch,
+        },
+        $2__validatorIndex: validatorIndex,
+        $3__timestamp: client.slotToTS(slot + 1),
+    };
+}
+
+main(42600, 2).then(console.log).catch(console.error);

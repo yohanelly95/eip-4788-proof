@@ -34,7 +34,7 @@ contract ValidatorVerifier {
         SSZ.Validator calldata validator,
         uint64 validatorIndex,
         uint64 ts
-    ) public returns (bool) {
+    ) public view returns (bool) {
         require(
             validatorIndex < VALIDATOR_REGISTRY_LIMIT,
             "validator index out of range"
@@ -43,21 +43,7 @@ contract ValidatorVerifier {
         uint256 gI = gIndex + validatorIndex;
         bytes32 validatoRoot = SSZ.validatorHashTreeRoot(validator);
         bytes32 blockRoot = getParentBlockRoot(ts);
-        bool isValid = SSZ.verifyProof(
-            validatorProof,
-            blockRoot,
-            validatoRoot,
-            gI
-        );
-
-        emit ValidatorProven(
-            gIndex,
-            validatorIndex,
-            blockRoot,
-            validatoRoot,
-            isValid
-        );
-        return isValid;
+        return SSZ.verifyProof(validatorProof, blockRoot, validatoRoot, gI);
     }
 
     function getParentBlockRoot(

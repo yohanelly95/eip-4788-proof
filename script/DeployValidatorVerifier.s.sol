@@ -8,7 +8,7 @@ import {ValidatorVerifier} from '../src/ValidatorVerifier.sol';
 contract DeployValidatorVerifier is Script {
     function run() external returns (ValidatorVerifier deployed) {
         // You can set this to any value you want
-        uint256 gIndex = 393625162743808;
+        uint256 gIndex = 1572301627719680;
         vm.startBroadcast();
         deployed = new ValidatorVerifier(gIndex);
         vm.stopBroadcast();

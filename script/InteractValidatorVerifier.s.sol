@@ -11,34 +11,33 @@ import {console} from 'forge-std/console.sol';
 contract InteractValidatorVerifier is Script {
     using stdJson for string;
 
+    struct ValidatorData {
+        bytes32[] proof;
+        SSZ.Validator validator;
+        uint64 validatorIndex;
+        uint64 timestamp;
+    }
+
     function run() external {
-        address verifierAddress = address(0x0215b3a07E673Ec73FfD27834f7aB73f877E59b5);
+        address verifierAddress = address(0x7a56A2B85915ef4DcB4B8a4112C12A75919359d9);
         ValidatorVerifier verifier = ValidatorVerifier(verifierAddress);
 
-        // Read validatorProof from proof.json
+        // Read and parse validator data from JSON
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, '/script/proof.json');
+        string memory path = string.concat(root, '/script/validator_2_42600.json');
         string memory json = vm.readFile(path);
-        bytes memory data = json.parseRaw('$.proof');
-        bytes32[] memory validatorProof = abi.decode(data, (bytes32[]));
+        bytes memory data = json.parseRaw('$');
+        ValidatorData memory validatorData = abi.decode(data, (ValidatorData));
 
-        SSZ.Validator memory validator = SSZ.Validator({
-            pubkey: hex'962d2407ecb575d95934614a24317392512e45bd6ed9360535c6f96d9c746a63572e224cb025552c07f6992607ff9f86',
-            withdrawalCredentials: 0x000c65e9f32d1e73edb60e08bce7d50843a9768129e489e02da5de1b0be18541,
-            effectiveBalance: 32000000000,
-            slashed: false,
-            activationEligibilityEpoch: 0,
-            activationEpoch: 0,
-            exitEpoch: 18446744073709551615,
-            withdrawableEpoch: 18446744073709551615
-        });
-        uint64 validatorIndex = 0;
-        uint64 ts = 1750084082;
-
-        vm.startBroadcast();
-        bool result = verifier.proveValidator(validatorProof, validator, validatorIndex, ts);
+        // vm.startBroadcast();
+        bool result = verifier.proveValidator(
+            validatorData.proof,
+            validatorData.validator,
+            validatorData.validatorIndex,
+            validatorData.timestamp
+        );
         console.log('result', result);
         // The ValidatorProven event will be visible in the transaction logs
-        vm.stopBroadcast();
+        // vm.stopBroadcast();
     }
 }
