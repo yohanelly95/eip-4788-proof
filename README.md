@@ -3,27 +3,21 @@
 A set of scripts and on-chain code to use EIP-4788 block root to prove specific
 properties of CL blocks.
 
-## Usage
+## Setup for validator script to generate proof:
 
-### Obtain proofs
+1. In `validator.js` update slot and validator index.
+1. export `BEACON_NODE_URL=http://127.0.0.1:5052`
+1. Run `node validator.js`. This will generate a JSON file with the proof with filename `validator_<validator_index>_<slot>.json`.
 
-```bash
-cd script
-yarn install
+## Onchain verification
 
-# Provide an address of a CL API endpoint.
-export BEACON_NODE_URL=http://127.0.0.1:5052
-node withdrawal.js
-node validator.js
-```
+1. Update gIndex in `script/DeployValidatorVerifier.s.sol`. This can be found using `node validator.js` and looking at the `GEN_INDEX_VALIDATOR_INFO` output by passing the slot and validator index as 0.
 
-Look into the corresponding scripts and modify the required values such as
-**slot**, **validator index**, **withdrawal index**.
+1. Deploy the contract:
+   `forge script script/DeployValidatorVerifier.s.sol --broadcast --rpc-url <rpc-url> --private-key <private-key>`
 
-The scripts output the data required too make a proof verifiable onchain with
-the contracts presented in this repository. See tests for example usage.
-
-The provided scripts were used to create fixtures for the tests.
+1. Update the address of the deployed contract and proof file name in `script/InteractValidatorVerifier.s.sol`.
+1. Run `forge script script/InteractValidatorVerifier.s.sol --rpc-url <rpc-url>`
 
 ### Tests
 
