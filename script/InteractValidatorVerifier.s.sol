@@ -24,7 +24,7 @@ contract InteractValidatorVerifier is Script {
 
         // Read and parse validator data from JSON
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, '/script/validator_2_42600.json');
+        string memory path = string.concat(root, '/script/validator_9_42600.json');
         string memory json = vm.readFile(path);
         bytes memory data = json.parseRaw('$');
         ValidatorData memory validatorData = abi.decode(data, (ValidatorData));
