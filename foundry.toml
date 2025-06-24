@@ -6,7 +6,7 @@ optimizer = true
 optimizer_runs = 1_000
 evm_version = "shanghai"
 block_gas_limit = 30_000_000
-fs_permissions = [{ access = "read", path = "./test/fixtures"}]
+fs_permissions = [{ access = "read", path = "./test/fixtures"}, { access = "read", path = "./script"  }]
 
 [fmt]
 line_length = 80
