@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import { SSZ } from "./SSZ.sol";
+import {SSZ} from "./SSZ.sol";
 
 contract WithdrawalsVerifier {
     address public constant BEACON_ROOTS =
@@ -26,7 +26,7 @@ contract WithdrawalsVerifier {
         SSZ.Withdrawal memory withdrawal,
         uint8 withdrawalIndex,
         uint64 ts
-    ) public {
+    ) public view returns (bool) {
         // forgefmt: disable-next-item
         require(
             withdrawalIndex < MAX_WITHDRAWALS,
@@ -37,27 +37,16 @@ contract WithdrawalsVerifier {
         bytes32 withdrawalRoot = SSZ.withdrawalHashTreeRoot(withdrawal);
         bytes32 blockRoot = getParentBlockRoot(ts);
 
-        require(
-            // forgefmt: disable-next-item
-            SSZ.verifyProof(
-                withdrawalProof,
-                blockRoot,
-                withdrawalRoot,
-                gI
-            ),
-            "invalid withdrawal proof"
-        );
-
-        emit WithdrawalSubmitted(withdrawal.validatorIndex, withdrawal.amount);
+        return SSZ.verifyProof(withdrawalProof, blockRoot, withdrawalRoot, gI);
+        // emit WithdrawalSubmitted(withdrawal.validatorIndex, withdrawal.amount);
     }
 
-    function getParentBlockRoot(uint64 ts)
-        internal
-        view
-        returns (bytes32 root)
-    {
-        (bool success, bytes memory data) =
-            BEACON_ROOTS.staticcall(abi.encode(ts));
+    function getParentBlockRoot(
+        uint64 ts
+    ) internal view returns (bytes32 root) {
+        (bool success, bytes memory data) = BEACON_ROOTS.staticcall(
+            abi.encode(ts)
+        );
 
         if (!success || data.length == 0) {
             revert RootNotFound();
