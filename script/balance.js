@@ -1,4 +1,4 @@
-import { Tree } from "@chainsafe/persistent-merkle-tree";
+import { createProof, ProofType } from "@chainsafe/persistent-merkle-tree";
 import { toHexString } from "@chainsafe/ssz";
 import { ssz } from "@lodestar/types";
 
@@ -71,42 +71,40 @@ function packBalances(balances) {
 }
 
 function generateBalanceProof(beaconState, validatorIndex) {
-    // Calculate which leaf this validator belongs to
+    // Calculate which leaf this validator belongs to (4 balances per leaf)
     const leafIndex = Math.floor(validatorIndex / 4);
     
-    // Create the SSZ tree view
+    // Create the SSZ tree view for balances
     const balancesView = ssz.phase0.Balances.toView(beaconState.balances);
     
-    // For SSZ List[uint64], the tree structure includes length mixing
-    // The actual balance leaves start at a specific depth
-    const balanceCount = beaconState.balances.length;
-    const leavesCount = Math.ceil(balanceCount / 4); // 4 balances per leaf
+    // Get the correct gindex for the specific balance leaf
+    // SSZ packs 4 uint64 values per leaf, so we need to navigate to the packed leaf
+    const pathInfo = balancesView.type.getPathInfo([leafIndex * 4]);
+    console.log("Path info for balance leaf:", pathInfo);
     
-    // Calculate the correct gindex for the packed balance leaf
-    // In SSZ, List types have the length mixed at the root, so we need to
-    // navigate to the actual data subtree
-    const treeDepth = Math.ceil(Math.log2(leavesCount));
-    const subtreeGindex = 2; // List data is at gindex 2 (left child of root)
-    const leafGindexInSubtree = (1 << treeDepth) + leafIndex;
-    const leafGindex = subtreeGindex * (1 << treeDepth) + leafIndex;
+    // Generate the proof from the balances root
+    const proof = createProof(balancesView.node, {
+      type: ProofType.single,
+      gindex: pathInfo.gindex
+    });
     
-    // Generate the proof using the tree
-    const tree = new Tree(balancesView.node);
-    const proof = tree.getSingleProof(leafGindex);
+    console.log("Proof witnesses:", proof.witnesses.length);
     
-    // The proof should include witnesses up to but not including the root
-    // since we're proving against balanceContainerRoot
-    const witnessHashes = proof.map(witness => 
-      '0x' + Buffer.from(witness).toString('hex')
+    // Convert witnesses to hex strings
+    const witnessHashes = proof.witnesses.map(witness => 
+      toHexString(witness)
     );
     
-    // Add the length node at the end (SSZ list length mixing)
-    const lengthNode = Buffer.alloc(32);
-    lengthNode.writeUInt32LE(balanceCount, 0);
-    witnessHashes.push('0x' + lengthNode.toString('hex'));
+    console.log("witnessHashes");
+    console.log(witnessHashes);
     
-    // Format as concatenated hex string
-    const formattedProof = '0x' + witnessHashes.map(h => h.slice(2)).join('');
+    // Format as concatenated hex string for the contract
+    const formattedProof = '0x' + witnessHashes.map(hash => 
+      hash.slice(2) // Remove '0x' prefix
+    ).join('');
+    
+    console.log("formattedProof");
+    console.log(formattedProof);
     
     return formattedProof;
   }
