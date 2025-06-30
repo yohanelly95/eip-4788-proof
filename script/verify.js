@@ -17,10 +17,6 @@ function verifyBalanceProof(balanceContainerRoot, balanceRoot, proof) {
         console.log('Balance root:', balanceRoot);
         console.log('Expected container root:', balanceContainerRoot);
         
-        // For SSZ proofs, we need to start with the correct leaf value
-        // The balanceRoot represents the packed 4 balances
-        const leafValue = Buffer.from(balanceRoot.slice(2), 'hex');
-        
         // The first witness from SSZ proof is actually the leaf value itself
         // Let's use it as the leaf and skip it from the proof
         console.log('Our calculated balance root:', balanceRoot);
