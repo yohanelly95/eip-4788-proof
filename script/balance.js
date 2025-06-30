@@ -1,6 +1,7 @@
 import { createProof, ProofType } from "@chainsafe/persistent-merkle-tree";
 import { toHexString } from "@chainsafe/ssz";
 import { ssz } from "@lodestar/types";
+import fs from 'fs';
 
 async function getBalanceProofData(beaconNodeUrl, slot, validatorIndex) {
   // 1. Get beacon block header to find state root
@@ -105,12 +106,35 @@ function generateBalanceProof(beaconState, validatorIndex) {
       hash.slice(2) // Remove '0x' prefix
     ).join('');
     
-    console.log("formattedProof");
-    console.log(formattedProof);
-    
     return formattedProof;
   }
 
 
 
-getBalanceProofData('http://138.201.157.91:4002', 113809, 10).then(console.log);
+// Main function to get balance proof data and save to JSON
+async function main(slot, validatorIndex) {
+    const data = await getBalanceProofData('http://138.201.157.91:4002', slot, validatorIndex);
+    
+    // Transform data for JSON output similar to validator.js
+    const jsonData = {
+        $0__proof: data.balanceProof.proof,
+        $1__balanceContainerRoot: data.balanceContainerRoot,
+        $2__balanceProof: {
+            $0__pubkeyHash: data.balanceProof.pubkeyHash,
+            $1__balanceRoot: data.balanceProof.balanceRoot,
+            $2__proof: data.balanceProof.proof.split('0x').filter(x => x).map(chunk => '0x' + chunk)
+        },
+        $3__validatorIndex: validatorIndex,
+        $4__validatorBalance: Number(data.validatorBalance),
+        $5__slot: slot
+    };
+    
+    // Write to JSON file
+    const filename = `balanceContainerRoot_${validatorIndex}_${slot}.json`;
+    fs.writeFileSync(filename, JSON.stringify(jsonData, null, 2));
+    console.log(`Balance proof data saved to ${filename}`);
+    
+    return data;
+}
+
+main(113809, 10).then(console.log).catch(console.error);
