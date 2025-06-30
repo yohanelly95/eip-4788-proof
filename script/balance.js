@@ -22,6 +22,8 @@ async function getBalanceProofData(beaconNodeUrl, slot, validatorIndex) {
   // 3. Parse state and get balances
   const state = ssz.electra.BeaconState.fromJson(stateData.data);
   const balances = state.balances;
+  const validator = state.validators[validatorIndex];
+  const pubkey = toHexString(validator.pubkey);
   
   // 4. Create the balance container root
   const balanceContainerRoot = ssz.phase0.Balances.hashTreeRoot(balances);
@@ -53,7 +55,7 @@ async function getBalanceProofData(beaconNodeUrl, slot, validatorIndex) {
   return {
     balanceContainerRoot: toHexString(balanceContainerRoot),
     balanceProof: {
-      pubkeyHash: "0x...", // You need to calculate this separately
+      pubkeyHash: pubkey,
       balanceRoot: balanceRoot,
       proof: proof
     },
