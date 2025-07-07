@@ -54,81 +54,81 @@ library SSZ {
         );
     }
 
-    /// @notice Compute the hash tree root of a balance container
-    /// @dev This is a simplified version for a subset of balances
-    /// @param balances Array of validator balances
-    /// @return Hash tree root of the balance list
-    function balanceContainerHashTreeRoot(uint64[] memory balances)
-        internal
-        view
-        returns (bytes32)
-    {
-        // SSZ List[uint64] packs 4 values per leaf
-        uint256 numLeaves = (balances.length + 3) / 4; // ceil(length/4)
+    // /// @notice Compute the hash tree root of a balance container
+    // /// @dev This is a simplified version for a subset of balances
+    // /// @param balances Array of validator balances
+    // /// @return Hash tree root of the balance list
+    // function balanceContainerHashTreeRoot(uint64[] memory balances)
+    //     internal
+    //     view
+    //     returns (bytes32)
+    // {
+    //     // SSZ List[uint64] packs 4 values per leaf
+    //     uint256 numLeaves = (balances.length + 3) / 4; // ceil(length/4)
         
-        // Calculate tree depth
-        uint256 treeDepth = 0;
-        uint256 maxLeaves = 1;
-        while (maxLeaves < numLeaves) {
-            maxLeaves <<= 1;
-            treeDepth++;
-        }
+    //     // Calculate tree depth
+    //     uint256 treeDepth = 0;
+    //     uint256 maxLeaves = 1;
+    //     while (maxLeaves < numLeaves) {
+    //         maxLeaves <<= 1;
+    //         treeDepth++;
+    //     }
         
-        // Allocate array for tree nodes at the leaf level
-        bytes32[] memory nodes = new bytes32[](maxLeaves);
+    //     // Allocate array for tree nodes at the leaf level
+    //     bytes32[] memory nodes = new bytes32[](maxLeaves);
         
-        // Pack balances into leaves
-        for (uint256 i = 0; i < numLeaves; i++) {
-            uint256 baseIdx = i * 4;
-            uint64 b0 = baseIdx < balances.length ? balances[baseIdx] : 0;
-            uint64 b1 = baseIdx + 1 < balances.length ? balances[baseIdx + 1] : 0;
-            uint64 b2 = baseIdx + 2 < balances.length ? balances[baseIdx + 2] : 0;
-            uint64 b3 = baseIdx + 3 < balances.length ? balances[baseIdx + 3] : 0;
+    //     // Pack balances into leaves
+    //     for (uint256 i = 0; i < numLeaves; i++) {
+    //         uint256 baseIdx = i * 4;
+    //         uint64 b0 = baseIdx < balances.length ? balances[baseIdx] : 0;
+    //         uint64 b1 = baseIdx + 1 < balances.length ? balances[baseIdx + 1] : 0;
+    //         uint64 b2 = baseIdx + 2 < balances.length ? balances[baseIdx + 2] : 0;
+    //         uint64 b3 = baseIdx + 3 < balances.length ? balances[baseIdx + 3] : 0;
             
-            nodes[i] = packBalances(b0, b1, b2, b3);
-        }
+    //         nodes[i] = packBalances(b0, b1, b2, b3);
+    //     }
         
-        // Fill remaining leaves with zeros
-        for (uint256 i = numLeaves; i < maxLeaves; i++) {
-            nodes[i] = bytes32(0);
-        }
+    //     // Fill remaining leaves with zeros
+    //     for (uint256 i = numLeaves; i < maxLeaves; i++) {
+    //         nodes[i] = bytes32(0);
+    //     }
         
-        // Build the merkle tree
-        uint256 nodeCount = maxLeaves;
-        while (nodeCount > 1) {
-            uint256 nextLevelCount = nodeCount / 2;
-            for (uint256 i = 0; i < nextLevelCount; i++) {
-                bytes32 left = nodes[i * 2];
-                bytes32 right = nodes[i * 2 + 1];
+    //     // Build the merkle tree
+    //     uint256 nodeCount = maxLeaves;
+    //     while (nodeCount > 1) {
+    //         uint256 nextLevelCount = nodeCount / 2;
+    //         for (uint256 i = 0; i < nextLevelCount; i++) {
+    //             bytes32 left = nodes[i * 2];
+    //             bytes32 right = nodes[i * 2 + 1];
                 
-                // Hash the pair
-                bytes memory pair = abi.encodePacked(left, right);
-                bytes32 hash;
-                assembly {
-                    let result := staticcall(gas(), SHA256, add(pair, 0x20), 0x40, 0x00, 0x20)
-                    if eq(result, 0) { revert(0, 0) }
-                    hash := mload(0x00)
-                }
-                nodes[i] = hash;
-            }
-            nodeCount = nextLevelCount;
-        }
+    //             // Hash the pair
+    //             bytes memory pair = abi.encodePacked(left, right);
+    //             bytes32 hash;
+    //             assembly {
+    //                 let result := staticcall(gas(), SHA256, add(pair, 0x20), 0x40, 0x00, 0x20)
+    //                 if eq(result, 0) { revert(0, 0) }
+    //                 hash := mload(0x00)
+    //             }
+    //             nodes[i] = hash;
+    //         }
+    //         nodeCount = nextLevelCount;
+    //     }
         
-        // For SSZ List, we need to mix in the length at the root
-        bytes32 dataRoot = nodes[0];
-        bytes32 lengthNode = bytes32(uint256(balances.length));
+    //     // For SSZ List, we need to mix in the length at the root
+    //     bytes32 dataRoot = nodes[0];
+    //     bytes32 lengthNode = bytes32(uint256(balances.length));
         
-        // Mix length and data root
-        bytes memory finalPair = abi.encodePacked(dataRoot, lengthNode);
-        bytes32 root;
-        assembly {
-            let result := staticcall(gas(), SHA256, add(finalPair, 0x20), 0x40, 0x00, 0x20)
-            if eq(result, 0) { revert(0, 0) }
-            root := mload(0x00)
-        }
+    //     // Mix length and data root
+    //     bytes memory finalPair = abi.encodePacked(dataRoot, lengthNode);
+    //     bytes32 root;
+    //     assembly {
+    //         let result := staticcall(gas(), SHA256, add(finalPair, 0x20), 0x40, 0x00, 0x20)
+    //         if eq(result, 0) { revert(0, 0) }
+    //         root := mload(0x00)
+    //     }
         
-        return root;
-    }
+    //     return root;
+    // }
 
     /// Inspired by https://github.com/succinctlabs/telepathy-contracts/blob/main/src/libraries/SimpleSerialize.sol#L59
     function withdrawalHashTreeRoot(Withdrawal memory withdrawal)
