@@ -38,8 +38,6 @@ contract InteractBalanceContainerRootVerifier is Script {
         // Parse balance container proof array
         bytes32[] memory balanceContainerProofTemp = abi.decode(json.parseRaw('.balanceContainerProof'), (bytes32[]));
         bytes32[] memory balanceContainerProof = balanceContainerProofTemp;
-        // Calculate timestamp from slot (assuming 12 seconds per slot and genesis timestamp)
-        // This is a simplified calculation - in practice you'd want to use accurate beacon chain timing
 
         console.log('Verifying balance container with data:');
         console.log('Balance Container Root:', vm.toString(balanceContainerRoot));
@@ -61,14 +59,7 @@ contract InteractBalanceContainerRootVerifier is Script {
             console.log('ERROR: Balance verification FAILED');
             revert('Balance verification failed');
         }
-        // Test 2: Extract the specific validator's balance
-        console.log('\n=== Testing Balance Extraction ===');
-        uint8 position = uint8(validatorIndex % 4);
-        // uint64 extractedBalance = verifier.extractBalance(packedBalances, position);
-        console.log('Position in packed balances:', position);
-        // console.log('Extracted balance:', extractedBalance);
-        console.log('Expected balance:', currentBalance);
-        // console.log('Balance extraction match:', extractedBalance == currentBalance);
+
 
         vm.stopBroadcast();
 
