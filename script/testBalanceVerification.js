@@ -147,7 +147,7 @@ async function testMultipleValidators() {
     
     const config = {
         beaconNodeUrl: 'http://138.201.157.91:4002',
-        slot: 114999,
+        slot: 207000,
         validatorIndices: [10, 11, 12, 100, 101, 102] // Mix of same and different leaves
     };
 
@@ -174,9 +174,9 @@ async function testMultipleValidators() {
             }
             console.log(`  - Packed balances: ${proofs[0].packedBalances}`);
         }
-
+        const filename = `script/multipleValidators_${config.slot}.json`;
         // Save grouped data
-        fs.writeFileSync('multipleValidators_test.json', JSON.stringify({
+        fs.writeFileSync(filename, JSON.stringify({
             balanceContainerRoot: balanceData.balanceContainerRoot,
             balanceContainerProof: balanceData.balanceContainerProof,
             leafGroups: leafGroups
@@ -196,15 +196,15 @@ async function main() {
 
     try {
         // Test 1: Single validator
-        await generateAndTestBalanceProof();
+        // await generateAndTestBalanceProof();
 
         // Test 2: Multiple validators (uncomment to run)
-        // await testMultipleValidators();
+        await testMultipleValidators();
 
-        console.log('\n✅ All tests completed successfully!');
+        console.log('\n All tests completed successfully!');
         
     } catch (error) {
-        console.error('\n❌ Test failed:', error);
+        console.error('\nTest failed:', error);
         process.exit(1);
     }
 }
