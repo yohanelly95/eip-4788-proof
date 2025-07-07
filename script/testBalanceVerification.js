@@ -1,27 +1,6 @@
 import { MetalayerProofGenerator } from './metalayerProofGenerator.js';
 import fs from 'fs';
 
-/**
- * 
- * Configuration for different networks:
- * 
- * MAINNET:
- * - beaconNodeUrl: 'https://beacon-node.example.com'
- * - genesisTime: 1606824023
- * - validatorIndices: Your mainnet validators
- * 
- * GOERLI (deprecated):
- * - beaconNodeUrl: 'https://goerli.beacon-node.example.com'
- * - genesisTime: 1616508000
- * 
- * SEPOLIA:
- * - beaconNodeUrl: 'https://sepolia.beacon-node.example.com'
- * - genesisTime: 1655733600
- * 
- * HOLESKY:
- * - beaconNodeUrl: 'https://holesky.beacon-node.example.com'
- * - genesisTime: 1695902400
- */
 
 async function generateAndTestBalanceProof() {
     // Configuration - adjust these for your network
