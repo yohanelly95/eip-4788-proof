@@ -33,9 +33,9 @@ contract BalanceContainerRootVerifier {
         bytes32[] calldata balanceContainerProof,
         bytes32 balanceContainerRoot,
         uint64 ts
-    ) public view returns (bool) {
+    ) public returns (bool) {
         bytes32 blockRoot = getParentBlockRoot(ts);
-        
+
         bool isValid = SSZ.verifyProof(
             balanceContainerProof,
             blockRoot,
@@ -60,22 +60,36 @@ contract BalanceContainerRootVerifier {
         bytes32 packedBalances,
         bytes32 balanceContainerRoot,
         uint256 leafIndex
-    ) public pure returns (bool) {
-        // For SSZ List[uint64], the data is at gindex 2 (left child)
-        // Then we need to navigate to the specific leaf
-        // The depth depends on the maximum number of validators
-        uint256 balanceTreeDepth = SSZ.log2((VALIDATOR_REGISTRY_LIMIT + 3) / 4); // ceil(limit/4)
+    ) public view returns (bool) {
+        require(balanceProof.length > 0, "Empty proof");
+
+        // Calculate the proper gindex for balance verification
+        uint256 gIndex = _calculateBalanceGindex(leafIndex);
+
+        // Use the full proof and the provided packedBalances as the leaf
+        return
+            SSZ.verifyProof(
+                balanceProof,
+                balanceContainerRoot,
+                packedBalances,
+                gIndex
+            );
+    }
+
+    /// @notice Calculate the generalized index for a balance leaf
+    /// @param leafIndex The leaf index (validatorIndex / 4)
+    /// @return The generalized index for the balance leaf
+    function _calculateBalanceGindex(uint256 leafIndex) internal pure returns (uint256) {
+        // For SSZ List[uint64, 2**40], the structure is:
+        // - Length is mixed at the root (gindex 1)
+        // - Data starts at gindex 2 (left child)
+        // - Balance tree depth is 38 (from JavaScript: log2((2^40 + 3) / 4))
+        
+        uint256 balanceTreeDepth = 38;
         uint256 leafGindex = (1 << balanceTreeDepth) + leafIndex;
         
-        // SSZ List has length mixed at root, so actual data is at gindex 2
-        uint256 gIndex = SSZ.concatGindices(2, uint64(leafGindex));
-        
-        return SSZ.verifyProof(
-            balanceProof,
-            balanceContainerRoot,
-            packedBalances,
-            gIndex
-        );
+        // Combine with List structure: data is at gindex 2
+        return SSZ.concatGindices(2, uint64(leafGindex));
     }
 
     /// @notice Verifies both the balance container and a specific balance in one call
@@ -92,14 +106,26 @@ contract BalanceContainerRootVerifier {
         bytes32 balanceContainerRoot,
         uint256 leafIndex,
         uint64 ts
-    ) external view returns (bool) {
+    ) external returns (bool) {
         // First verify the balance container root
-        if (!verifyBalanceContainer(balanceContainerProof, balanceContainerRoot, ts)) {
+        if (
+            !verifyBalanceContainer(
+                balanceContainerProof,
+                balanceContainerRoot,
+                ts
+            )
+        ) {
             return false;
         }
-        
+
         // Then verify the specific balance
-        return verifyBalance(balanceProof, packedBalances, balanceContainerRoot, leafIndex);
+        return
+            verifyBalance(
+                balanceProof,
+                packedBalances,
+                balanceContainerRoot,
+                leafIndex
+            );
     }
 
     /// @notice Extracts a specific validator's balance from packed balances
@@ -110,12 +136,12 @@ contract BalanceContainerRootVerifier {
         uint8 position
     ) public pure returns (uint64) {
         require(position < 4, "Position must be 0-3");
-        
+
         // Each balance is 8 bytes (64 bits)
         // Extract the specific balance using bit shifting
         uint256 shift = position * 64;
         uint256 mask = 0xFFFFFFFFFFFFFFFF; // 64 bits of 1s
-        
+
         return uint64((uint256(packedBalances) >> shift) & mask);
     }
 

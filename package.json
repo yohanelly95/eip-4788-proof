@@ -1,0 +1,19 @@
+{
+  "name": "eip-4788-proof",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "EIP-4788 proof generation and verification for balance verification",
+  "scripts": {
+    "generate-balance-proof": "node script/testBalanceVerification.js",
+    "test-metalayer-generator": "node script/metalayerProofGenerator.js",  
+    "verify-balance": "forge script script/TestBalanceContainerRootVerifier.s.sol --rpc-url http://localhost:8545 --broadcast --via-ir"
+  },
+  "dependencies": {
+    "@chainsafe/persistent-merkle-tree": "^0.6.1",
+    "@chainsafe/ssz": "^0.14.0",
+    "@lodestar/types": "^1.14.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
