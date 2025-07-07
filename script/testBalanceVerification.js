@@ -191,7 +191,7 @@ async function testMultipleValidators() {
 
 // Main execution
 async function main() {
-    console.log('EigenLayer Balance Verification Test Script');
+    console.log('Metalayer Balance Verification Test Script');
     console.log('==========================================\n');
 
     try {

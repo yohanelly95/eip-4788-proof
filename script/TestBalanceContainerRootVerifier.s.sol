@@ -153,9 +153,6 @@ contract TestBalanceContainerRootVerifier is Script {
         console.log('\nBatch Balance Verification Test');
         console.log('===============================');
 
-        // In EigenLayer, validators are often verified in batches during checkpoints
-        // This demonstrates how to structure such verification
-
         BalanceContainerRootVerifier verifier = BalanceContainerRootVerifier(
             address(0x5FbDB2315678afecb367f032d93F642f64180aa3) // Update address
         );
@@ -182,39 +179,8 @@ contract TestBalanceContainerRootVerifier is Script {
 
             // Note: Gas optimization opportunity
             // If multiple validators share the same leaf, we can reuse the proof
-            // This is why EigenLayer batches validators efficiently
         }
 
         console.log('\nBatch verification complete');
-    }
-
-    /**
-     * @notice Demonstrate integration with Metapod-style verification
-     * @dev Shows how balance verification fits into larger validator management
-     */
-    function demonstrateEigenPodIntegration() external view {
-        console.log('\nMetapod Integration Pattern');
-        console.log('============================');
-
-        console.log('\n1. Initial Validator Verification:');
-        console.log('   - Verify withdrawal credentials point to Metapod');
-        console.log('   - Record validator pubkey hash');
-        console.log('   - Set initial restaked balance');
-
-        console.log('\n2. Regular Checkpoints:');
-        console.log('   - Start checkpoint with beacon block root');
-        console.log('   - Verify balance container once');
-        console.log('   - Batch verify individual validator balances');
-        console.log('   - Update restaked balances based on proof');
-
-        console.log('\n3. Withdrawal Processing:');
-        console.log('   - Verify withdrawal proof');
-        console.log('   - Update validator status');
-        console.log('   - Process ETH distribution');
-
-        console.log('\nKey Efficiency Points:');
-        console.log('   - Reuse balance container verification across validators');
-        console.log('   - Batch validators sharing same leaf');
-        console.log('   - Cache intermediate values where possible');
     }
 }
