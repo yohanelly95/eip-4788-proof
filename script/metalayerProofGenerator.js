@@ -2,13 +2,13 @@ import { concatGindices, createProof, ProofType } from '@chainsafe/persistent-me
 import { toHexString } from "@chainsafe/ssz";
 import { ssz } from '@lodestar/types';
 import crypto from 'crypto';
+import { createClient } from './client.js';
 
 /**
  * Complete example showing how to prepare data for all three verification types
  * using a Pectra-supporting beacon node
  * 
  * Network-specific parameters that need adjustment:
- * - GENESIS_TIME: Different for each network (mainnet: 1606824023, goerli: 1616508000, sepolia: 1655733600)
  * - beaconNodeUrl: The beacon node endpoint
  * - validatorIndices: The specific validators you want to verify
  */
@@ -25,6 +25,16 @@ class MetalayerProofGenerator {
         // Using electra for latest fork support
         this.BeaconBlock = ssz.electra.BeaconBlock;
         this.BeaconState = ssz.electra.BeaconState;
+        this.client = null; // Will be initialized when needed
+    }
+
+    async initClient() {
+        if (!this.client) {
+            // Set environment variable for the client
+            process.env.BEACON_NODE_URL = this.beaconNode;
+            this.client = await createClient();
+        }
+        return this.client;
     }
 
     /**
@@ -107,6 +117,9 @@ class MetalayerProofGenerator {
      */
     async prepareBalanceProofs(slot, validatorIndices) {
         console.log(`Preparing balance proofs for ${validatorIndices.length} validators at slot ${slot}`);
+        
+        // Initialize client for proper timestamp calculation
+        const client = await this.initClient();
         
         // 1. Fetch block and state
         const blockResponse = await fetch(`${this.beaconNode}/eth/v2/beacon/blocks/${slot}`);
@@ -194,7 +207,7 @@ class MetalayerProofGenerator {
             balanceContainerProof: balanceContainerProof.witnesses.map(w => toHexString(w)),
             balanceProofs,
             slot,
-            timestamp: this.slotToTimestamp(slot)
+            timestamp: client.slotToTS(slot) // Use client's timestamp calculation
         };
     }
 
@@ -241,12 +254,13 @@ class MetalayerProofGenerator {
             // Additional info
             slot,
             blockNumber: blockData.data.message.body.execution_payload.block_number,
-            timestamp: this.slotToTimestamp(slot)
+            timestamp: (await this.initClient()).slotToTS(slot)
         };
     }
 
     /**
      * Generate balance proof data specifically for our BalanceContainerRootVerifier
+     * Now matches the format from testBalanceVerification.js
      */
     async prepareBalanceVerificationData(slot, validatorIndex) {
         console.log(`Preparing balance verification data for validator ${validatorIndex} at slot ${slot}`);
@@ -255,20 +269,24 @@ class MetalayerProofGenerator {
         const balanceData = await this.prepareBalanceProofs(slot, [validatorIndex]);
         const proof = balanceData.balanceProofs[0];
         
-        // Format for our contract
+        // Format matching testBalanceVerification.js
         return {
-            // For InteractBalanceContainerRootVerifier script
-            "$0__proof": proof.proof.join(''), // Concatenated proof
-            "$1__balanceContainerRoot": balanceData.balanceContainerRoot,
-            "$2__balanceProof": {
-                "$0__pubkeyHash": proof.pubkeyHash,
-                "$1__balanceRoot": proof.packedBalances, // The packed 4 balances
-                "$2__proof": proof.proof.join('') // Same proof
-            },
-            "$3__validatorIndex": validatorIndex,
-            "$4__validatorBalance": proof.currentBalanceGwei,
-            "$5__slot": slot,
-            "$6__ts": balanceData.timestamp
+            // Balance container verification
+            balanceContainerRoot: balanceData.balanceContainerRoot,
+            balanceContainerProof: balanceData.balanceContainerProof,
+            
+            // Individual balance verification
+            validatorIndex: validatorIndex,
+            leafIndex: proof.leafIndex,
+            packedBalances: proof.packedBalances,
+            balanceProof: proof.proof,
+            
+            // Additional data
+            currentBalance: proof.currentBalanceGwei,
+            allBalancesInLeaf: proof.allBalancesInLeaf,
+            beaconBlockRoot: balanceData.beaconBlockRoot,
+            slot: slot,
+            timestamp: balanceData.timestamp
         };
     }
 
@@ -313,16 +331,6 @@ class MetalayerProofGenerator {
         return crypto.createHash('sha256').update(data).digest();
     }
     
-    slotToTimestamp(slot) {
-        // Network-specific genesis times:
-        // Mainnet: 1606824023
-        // Goerli: 1616508000  
-        // Sepolia: 1655733600
-        // Holesky: 1695902400
-        const GENESIS_TIME = 1606824023; // Change this for different networks
-        const SECONDS_PER_SLOT = 12;
-        return GENESIS_TIME + (slot * SECONDS_PER_SLOT);
-    }
 }
 
 // Usage example
@@ -343,14 +351,14 @@ async function main() {
         
         // Save to JSON file for use with InteractBalanceContainerRootVerifier
         const fs = await import('fs');
-        const filename = `balanceVerification_${validatorIndex}_${slot}.json`;
+        const filename = `script/balanceVerification_${validatorIndex}_${slot}.json`;
         fs.writeFileSync(filename, JSON.stringify(verificationData, null, 2));
         console.log(`Balance verification data saved to ${filename}`);
         
         // Also demonstrate full checkpoint preparation
-        const validatorIndices = [10, 11, 12]; // Example validators
-        const checkpointData = await proofGen.prepareBalanceProofs(slot, validatorIndices);
-        console.log('Checkpoint data:', checkpointData);
+        // const validatorIndices = [10, 11, 12]; // Example validators
+        // const checkpointData = await proofGen.prepareBalanceProofs(slot, validatorIndices);
+        // console.log('Checkpoint data:', checkpointData);
         
     } catch (error) {
         console.error('Error generating proofs:', error);

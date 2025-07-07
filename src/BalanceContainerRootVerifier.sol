@@ -79,15 +79,17 @@ contract BalanceContainerRootVerifier {
     /// @notice Calculate the generalized index for a balance leaf
     /// @param leafIndex The leaf index (validatorIndex / 4)
     /// @return The generalized index for the balance leaf
-    function _calculateBalanceGindex(uint256 leafIndex) internal pure returns (uint256) {
+    function _calculateBalanceGindex(
+        uint256 leafIndex
+    ) internal pure returns (uint256) {
         // For SSZ List[uint64, 2**40], the structure is:
         // - Length is mixed at the root (gindex 1)
         // - Data starts at gindex 2 (left child)
         // - Balance tree depth is 38 (from JavaScript: log2((2^40 + 3) / 4))
-        
+
         uint256 balanceTreeDepth = 38;
         uint256 leafGindex = (1 << balanceTreeDepth) + leafIndex;
-        
+
         // Combine with List structure: data is at gindex 2
         return SSZ.concatGindices(2, uint64(leafGindex));
     }
@@ -129,7 +131,7 @@ contract BalanceContainerRootVerifier {
     }
 
     /// @notice Extracts a specific validator's balance from packed balances
-    /// @param packedBalances The packed 4 balances (32 bytes)
+    /// @param packedBalances The packed 4 balances (32 bytes) in little-endian format
     /// @param position Position within the packed balances (0-3)
     function extractBalance(
         bytes32 packedBalances,
@@ -137,8 +139,8 @@ contract BalanceContainerRootVerifier {
     ) public pure returns (uint64) {
         require(position < 4, "Position must be 0-3");
 
-        // Each balance is 8 bytes (64 bits)
-        // Extract the specific balance using bit shifting
+        // Use the same bit shifting as SSZ.packBalances
+        // Position 0: bits 0-63, Position 1: bits 64-127, etc.
         uint256 shift = position * 64;
         uint256 mask = 0xFFFFFFFFFFFFFFFF; // 64 bits of 1s
 
