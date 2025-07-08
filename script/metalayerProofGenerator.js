@@ -44,17 +44,20 @@ class MetalayerProofGenerator {
         console.log(`Preparing credential proof for validator ${validatorIndex} at slot ${slot}`);
         
         // 1. Fetch block
-        const blockResponse = await fetch(`${this.beaconNode}/eth/v2/beacon/blocks/${slot}`);
-        const blockData = await blockResponse.json();
-        const blockView = this.BeaconBlock.toView(this.BeaconBlock.fromJson(blockData.data.message));
+        const blockRes = await this.client.beacon.getBlockV2({ blockId: slot });
+        if (!blockRes.ok) {
+            throw blockRes.error;
+        }
+        const blockView = this.BeaconBlock.toView(blockRes.value().message);
         const blockRoot = blockView.hashTreeRoot();
         
         // 2. Fetch state
-        const stateResponse = await fetch(`${this.beaconNode}/eth/v2/debug/beacon/states/${slot}`, {
-            headers: { 'Accept': 'application/octet-stream' }
-        });
-        const stateSsz = await stateResponse.arrayBuffer();
-        const stateView = this.BeaconState.deserializeToView(new Uint8Array(stateSsz));
+        const stateResponse = await this.client.debug.getStateV2({ stateId: slot }, 'ssz');
+        if (!stateResponse.ok) {
+            throw stateResponse.error;
+        }
+        const stateSsz = await stateResponse.ssz();
+        const stateView = this.BeaconState.deserializeToView(stateSsz);
         const stateRoot = stateView.hashTreeRoot();
         
         // 3. Verify state root matches block
@@ -79,16 +82,16 @@ class MetalayerProofGenerator {
         const tree = blockView.tree.clone();
         const stateRootProof = createProof(tree.rootNode, {
             type: ProofType.single,
-            gindex: BEACON_BLOCK_STATE_ROOT_GINDEX
+            gindex: blockView.type.getPathInfo(['stateRoot']).gindex
         });
         
         // 6. Generate validator proof
         // Attach state tree to block tree
-        tree.setNode(BEACON_BLOCK_STATE_ROOT_GINDEX, stateView.node);
+        tree.setNode(blockView.type.getPathInfo(['stateRoot']).gindex, stateView.node);
         
         const validatorGindex = concatGindices([
-            BEACON_BLOCK_STATE_ROOT_GINDEX,
-            BEACON_STATE_VALIDATORS_GINDEX,
+            blockView.type.getPathInfo(['stateRoot']).gindex,
+            stateView.type.getPathInfo(['validators']).gindex,
             this.calculateValidatorGindex(validatorIndex)
         ]);
         
@@ -122,34 +125,39 @@ class MetalayerProofGenerator {
         const client = await this.initClient();
         
         // 1. Fetch block and state
-        const blockResponse = await fetch(`${this.beaconNode}/eth/v2/beacon/blocks/${slot}`);
-        const blockData = await blockResponse.json();
-        const blockView = this.BeaconBlock.toView(this.BeaconBlock.fromJson(blockData.data.message));
+        const blockRes = await this.client.beacon.getBlockV2({ blockId: slot });
+        if (!blockRes.ok) {
+            throw blockRes.error;
+        }
+        const blockView = this.BeaconBlock.toView(blockRes.value().message);
         const blockRoot = blockView.hashTreeRoot();
         
-        const stateResponse = await fetch(`${this.beaconNode}/eth/v2/debug/beacon/states/${slot}`, {
-            headers: { 'Accept': 'application/octet-stream' }
-        });
-        const stateSsz = await stateResponse.arrayBuffer();
+        const stateRes = await this.client.debug.getStateV2({ stateId: slot }, 'ssz');
+        if (!stateRes.ok) {
+            throw stateRes.error;
+        }
+        const stateSsz = await stateRes.ssz();
         const stateView = this.BeaconState.deserializeToView(new Uint8Array(stateSsz));
-        
+
         // 2. Setup tree with state
         const tree = blockView.tree.clone();
-        tree.setNode(BEACON_BLOCK_STATE_ROOT_GINDEX, stateView.node);
-        
+        console.log(`gen index for state root: ${blockView.type.getPathInfo(['stateRoot']).gindex}`);
+        console.log(`gen index for balances container in state: ${stateView.type.getPathInfo(['balances']).gindex}`);
+        const stateRootGIndex = blockView.type.getPropertyGindex('stateRoot');  
+        tree.setNode(stateRootGIndex, stateView.node);
         // 3. Generate balance container proof (same for all validators)
         const balanceContainerGindex = concatGindices([
-            BEACON_BLOCK_STATE_ROOT_GINDEX,
-            BEACON_STATE_BALANCES_GINDEX
+            blockView.type.getPathInfo(['stateRoot']).gindex,
+            stateView.type.getPathInfo(['balances']).gindex
         ]);
-        
+        console.log(`gen index for balance container: ${balanceContainerGindex}`);
+
         const balanceContainerProof = createProof(tree.rootNode, {
             type: ProofType.single,
             gindex: balanceContainerGindex
         });
-        
         const balanceContainerRoot = stateView.balances.hashTreeRoot();
-        
+
         // 4. Generate individual balance proofs
         const balanceProofs = [];
         const balancesView = stateView.balances;
@@ -197,7 +205,7 @@ class MetalayerProofGenerator {
                 validatorIndex,
                 leafIndex,
                 positionInLeaf,
-                allBalancesInLeaf: leafBalances.map(b => Number(b))
+                allBalancesInLeaf: leafBalances.map(b => Number(b)),
             });
         }
         
@@ -205,9 +213,10 @@ class MetalayerProofGenerator {
             beaconBlockRoot: toHexString(blockRoot),
             balanceContainerRoot: toHexString(balanceContainerRoot),
             balanceContainerProof: balanceContainerProof.witnesses.map(w => toHexString(w)),
+            balanceContainerGindex,
             balanceProofs,
             slot,
-            timestamp: client.slotToTS(slot) // Use client's timestamp calculation
+            timestamp: client.slotToTS(slot + 1) // Use client's timestamp calculation
         };
     }
 
@@ -268,13 +277,12 @@ class MetalayerProofGenerator {
         // Get the balance proofs
         const balanceData = await this.prepareBalanceProofs(slot, [validatorIndex]);
         const proof = balanceData.balanceProofs[0];
-        
-        // Format matching testBalanceVerification.js
         return {
             // Balance container verification
             balanceContainerRoot: balanceData.balanceContainerRoot,
             balanceContainerProof: balanceData.balanceContainerProof,
-            
+            balanceContainerGindex: Number(balanceData.balanceContainerGindex),
+
             // Individual balance verification
             validatorIndex: validatorIndex,
             leafIndex: proof.leafIndex,
@@ -287,6 +295,7 @@ class MetalayerProofGenerator {
             beaconBlockRoot: balanceData.beaconBlockRoot,
             slot: slot,
             timestamp: balanceData.timestamp
+            
         };
     }
 
@@ -344,7 +353,7 @@ async function main() {
     
     try {
         // Example: Generate balance verification data for our contract
-        const slot = 207000; // Example slot
+        const slot = 215790; // Example slot
         const validatorIndex = 10; // Example validator
         
         const verificationData = await proofGen.prepareBalanceVerificationData(slot, validatorIndex);

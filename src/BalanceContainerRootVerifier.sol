@@ -9,9 +9,6 @@ contract BalanceContainerRootVerifier {
 
     uint64 constant VALIDATOR_REGISTRY_LIMIT = 2 ** 40;
 
-    /// @dev Generalized index of the balance container in the beacon state
-    uint256 public immutable gIndexBalanceContainer;
-
     /// @notice Emitted when a balance container root is verified
     event BalanceContainerVerified(
         bytes32 indexed blockRoot,
@@ -21,10 +18,6 @@ contract BalanceContainerRootVerifier {
 
     error RootNotFound();
 
-    constructor(uint256 _gIndexBalanceContainer) {
-        gIndexBalanceContainer = _gIndexBalanceContainer;
-    }
-
     /// @notice Verifies the balance container root against a beacon block root
     /// @param balanceContainerProof Merkle proof from block root to balance container
     /// @param balanceContainerRoot The balance container root to verify
@@ -32,15 +25,17 @@ contract BalanceContainerRootVerifier {
     function verifyBalanceContainer(
         bytes32[] calldata balanceContainerProof,
         bytes32 balanceContainerRoot,
+        uint256 balanceContainerGindex,
         uint64 ts
     ) public returns (bool) {
         bytes32 blockRoot = getParentBlockRoot(ts);
+
 
         bool isValid = SSZ.verifyProof(
             balanceContainerProof,
             blockRoot,
             balanceContainerRoot,
-            gIndexBalanceContainer
+            balanceContainerGindex
         );
 
         if (isValid) {
@@ -106,6 +101,7 @@ contract BalanceContainerRootVerifier {
         bytes32[] calldata balanceProof,
         bytes32 packedBalances,
         bytes32 balanceContainerRoot,
+        uint256 balanceContainerGindex,
         uint256 leafIndex,
         uint64 ts
     ) external returns (bool) {
@@ -114,6 +110,7 @@ contract BalanceContainerRootVerifier {
             !verifyBalanceContainer(
                 balanceContainerProof,
                 balanceContainerRoot,
+                balanceContainerGindex,
                 ts
             )
         ) {
@@ -147,9 +144,7 @@ contract BalanceContainerRootVerifier {
         return uint64((uint256(packedBalances) >> shift) & mask);
     }
 
-    function getParentBlockRoot(
-        uint64 ts
-    ) internal view returns (bytes32 root) {
+    function getParentBlockRoot(uint64 ts) public view returns (bytes32 root) {
         (bool success, bytes memory data) = BEACON_ROOTS.staticcall(
             abi.encode(ts)
         );
