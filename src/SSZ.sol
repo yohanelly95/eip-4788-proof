@@ -38,6 +38,22 @@ library SSZ {
         bytes32 bodyRoot;
     }
 
+    /// @notice Pack 4 uint64 balances into a single 32-byte value
+    /// @dev Balances are packed in little-endian format, 4 per leaf
+    function packBalances(
+        uint64 balance0,
+        uint64 balance1,
+        uint64 balance2,
+        uint64 balance3
+    ) internal pure returns (bytes32) {
+        return bytes32(
+            uint256(balance0) |
+            (uint256(balance1) << 64) |
+            (uint256(balance2) << 128) |
+            (uint256(balance3) << 192)
+        );
+    }
+
     /// Inspired by https://github.com/succinctlabs/telepathy-contracts/blob/main/src/libraries/SimpleSerialize.sol#L59
     function withdrawalHashTreeRoot(Withdrawal memory withdrawal)
         internal
