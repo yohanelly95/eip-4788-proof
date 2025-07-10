@@ -1,9 +1,9 @@
-import fs from 'fs';
-import { ssz } from '@lodestar/types';
 import { concatGindices, createProof, ProofType } from '@chainsafe/persistent-merkle-tree';
+import { ssz } from '@lodestar/types';
+import fs from 'fs';
 
 import { createClient } from './client.js';
-import { toHex, verifyProof } from './utils.js';
+import { toHex } from './utils.js';
 
 const BeaconState = ssz.electra.BeaconState;
 const BeaconBlock = ssz.electra.BeaconBlock;
@@ -48,10 +48,10 @@ function generateValidatorProof(tree, blockView, stateView, validatorIndex, slot
     // Save data to json file
     let data = transformValidatorData(validatorProof, stateView, validatorIndex, slot, client);
     let json = JSON.stringify(data, null, 2);
-    // Remove the quote from the value corresponding to 6__exit_epoch and 7__withdrawable_epoch
+    // Remove the quote from the value corresponding to exit_epoch and withdrawable_epoch
     json = json
-        .replace(/"\$6__exit_epoch":\s*"(\d{20})"/, '"$6__exit_epoch": $1')
-        .replace(/"\$7__withdrawable_epoch":\s*"(\d{20})"/, '"$7__withdrawable_epoch": $1');
+        .replace(/"exit_epoch":\s*"(\d{20})"/, '"exit_epoch": $1')
+        .replace(/"withdrawable_epoch":\s*"(\d{20})"/, '"withdrawable_epoch": $1');
     fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
 
     return {
@@ -132,24 +132,24 @@ function transformValidatorData(validatorProof, stateView, validatorIndex, slot,
     const validator = stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex));
 
     return {
-        $0__proof: validatorProof.witnesses.map(toHex),
-        $1__validator: {
-            $0__pubkey: validator.pubkey,
-            $1__withdrawal_credentials: validator.withdrawal_credentials,
-            $2__effective_balance: Number(validator.effective_balance),
-            $3__slashed: validator.slashed,
-            $4__activation_eligibility_epoch: Number(validator.activation_eligibility_epoch),
-            $5__activation_epoch: Number(validator.activation_epoch),
-            $6__exit_epoch: validator.exit_epoch,
-            $7__withdrawable_epoch: validator.withdrawable_epoch,
+        proof: validatorProof.witnesses.map(toHex),
+        validator: {
+            pubkey: validator.pubkey,
+            withdrawal_credentials: validator.withdrawal_credentials,
+            effective_balance: Number(validator.effective_balance),
+            slashed: validator.slashed,
+            activation_eligibility_epoch: Number(validator.activation_eligibility_epoch),
+            activation_epoch: Number(validator.activation_epoch),
+            exit_epoch: validator.exit_epoch,
+            withdrawable_epoch: validator.withdrawable_epoch,
         },
-        $2__validatorIndex: validatorIndex,
-        $3__timestamp: client.slotToTS(slot + 1),
+        validatorIndex,
+        timestamp: client.slotToTS(slot + 1),
     };
 }
 
 // Example usage with multiple validator indexes
-main(233340, [400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419]).then(results => {
+main(233340, [330]).then(results => {
     console.log(`\nGenerated proofs for ${results.length} validators`);
     results.forEach((result, index) => {
         console.log(`\nValidator ${result.validatorIndex}:`);

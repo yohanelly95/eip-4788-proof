@@ -24,20 +24,30 @@ contract InteractValidatorVerifier is Script {
 
         // Read and parse validator data from JSON
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, '/script/validator_9_42600.json');
+        string memory path = string.concat(root, '/script/validator_330_233340.json');
         string memory json = vm.readFile(path);
-        bytes memory data = json.parseRaw('$');
-        ValidatorData memory validatorData = abi.decode(data, (ValidatorData));
-
-        // vm.startBroadcast();
+        
+        // Parse the new JSON format without $ prefixes
+        ValidatorData memory validatorData;
+        validatorData.proof = json.readBytes32Array('.proof');
+        validatorData.validatorIndex = uint64(json.readUint('.validatorIndex'));
+        validatorData.timestamp = uint64(json.readUint('.timestamp'));
+        
+        // Parse validator struct
+        validatorData.validator.pubkey = json.readBytes('.validator.pubkey');
+        validatorData.validator.withdrawalCredentials = json.readBytes32('.validator.withdrawal_credentials');
+        validatorData.validator.effectiveBalance = uint64(json.readUint('.validator.effective_balance'));
+        validatorData.validator.slashed = json.readBool('.validator.slashed');
+        validatorData.validator.activationEligibilityEpoch = uint64(json.readUint('.validator.activation_eligibility_epoch'));
+        validatorData.validator.activationEpoch = uint64(json.readUint('.validator.activation_epoch'));
+        validatorData.validator.exitEpoch = uint64(json.readUint('.validator.exit_epoch'));
+        validatorData.validator.withdrawableEpoch = uint64(json.readUint('.validator.withdrawable_epoch'));
         bool result = verifier.proveValidator(
             validatorData.proof,
             validatorData.validator,
             validatorData.validatorIndex,
             validatorData.timestamp
         );
-        console.log('result', result);
-        // The ValidatorProven event will be visible in the transaction logs
-        // vm.stopBroadcast();
+        console.log('Result:', result);
     }
 }
