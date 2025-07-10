@@ -9,10 +9,69 @@ const BeaconState = ssz.electra.BeaconState;
 const BeaconBlock = ssz.electra.BeaconBlock;
 
 /**
- * @param {string|number} slot
+ * Generate proof for a single validator
+ * @param {import('@chainsafe/persistent-merkle-tree').Tree} tree
+ * @param {any} blockView
+ * @param {any} stateView
  * @param {number} validatorIndex
+ * @param {string|number} slot
+ * @param {any} client
  */
-async function main(slot = 'finalized', validatorIndex = 0) {
+function generateValidatorProof(tree, blockView, stateView, validatorIndex, slot, client) {
+    // Read the validator's balance from the state
+    const validatorBalance = stateView.balances.get(validatorIndex);
+    console.log(`Validator ${validatorIndex} balance: ${validatorBalance}`);
+
+    // Create a proof for the state of the validator against the block.
+    const genIndexValidatorInfo = concatGindices([
+        blockView.type.getPathInfo(['stateRoot']).gindex,
+        stateView.type.getPathInfo(['validators', validatorIndex]).gindex,
+    ]);
+    console.log({ GEN_INDEX_VALIDATOR_INFO: genIndexValidatorInfo.toString() });
+
+    const validatorProof = createProof(tree.rootNode, { type: ProofType.single, gindex: genIndexValidatorInfo });
+    console.log(`Validator ${validatorIndex} proof witnesses:`, validatorProof.witnesses.map(toHex));
+
+    // Get the balance container root from the state view.
+    const balanceContainerRoot = stateView.balances.hashTreeRoot();
+
+    const genIndexBalancesContainer = concatGindices([
+        blockView.type.getPathInfo(['stateRoot']).gindex,
+        stateView.type.getPathInfo(['balances']).gindex,
+    ]);
+
+    const genIndexBalanceInBlock = concatGindices([
+        blockView.type.getPathInfo(['stateRoot']).gindex,
+        stateView.type.getPathInfo(['balances', validatorIndex]).gindex,
+    ]);
+
+    // Save data to json file
+    let data = transformValidatorData(validatorProof, stateView, validatorIndex, slot, client);
+    let json = JSON.stringify(data, null, 2);
+    // Remove the quote from the value corresponding to 6__exit_epoch and 7__withdrawable_epoch
+    json = json
+        .replace(/"\$6__exit_epoch":\s*"(\d{20})"/, '"$6__exit_epoch": $1')
+        .replace(/"\$7__withdrawable_epoch":\s*"(\d{20})"/, '"$7__withdrawable_epoch": $1');
+    fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
+
+    return {
+        blockRoot: toHex(tree.rootNode.root),
+        proof: validatorProof.witnesses.map(toHex),
+        balanceContainerRoot: toHex(balanceContainerRoot),
+        validatorIndex,
+        validatorBalance: validatorBalance,
+        validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
+        genIndexBalancesContainer,
+        genIndexBalanceInBlock,
+        timestamp: client.slotToTS(slot + 1),
+    };
+}
+
+/**
+ * @param {string|number} slot
+ * @param {number[]} validatorIndexes
+ */
+async function main(slot = 'finalized', validatorIndexes = [0]) {
     const client = await createClient();
 
     // Get the beacon block for the slot from the beacon node.
@@ -46,77 +105,27 @@ async function main(slot = 'finalized', validatorIndex = 0) {
     const stateRoot = stateView.hashTreeRoot();
     console.log(`State root: ${toHex(stateRoot)}`);
 
-    // Read the validator's balance from the state
-    const validatorBalance = stateView.balances.get(validatorIndex);
-    console.log(`Validator ${validatorIndex} balance: ${validatorBalance}`);
-
     /** @type {import('@chainsafe/persistent-merkle-tree').Tree} */
     const tree = blockView.tree.clone();
     const stateRootGIndex = blockView.type.getPropertyGindex('stateRoot');
     console.log({ stateRootGIndex });
+    console.log(`State root gen index in block view: ${stateRootGIndex}`);
+    
     // Patching the tree by attaching the state in the `stateRoot` field of the block.
     tree.setNode(stateRootGIndex, stateView.node);
 
-    // Create a proof for the state of the validator against the block.
-    const genIndexValidatorInfo = concatGindices([
-        blockView.type.getPathInfo(['stateRoot']).gindex,
-        stateView.type.getPathInfo(['validators', validatorIndex]).gindex,
-    ]);
-    console.log(`State root gen index in block view: ${stateRootGIndex}`);
-    console.log({ GEN_INDEX_VALIDATOR_INFO: genIndexValidatorInfo.toString() });
-
-    const validatorProof = createProof(tree.rootNode, { type: ProofType.single, gindex: genIndexValidatorInfo });
-    console.log(validatorProof.witnesses.map(toHex));
-
-    // Get the balance container root from the state view.
-    const balanceContainerRoot = stateView.balances.hashTreeRoot();
-    console.log(`Balance container root: ${toHex(balanceContainerRoot)}`);
-
     console.log(`gen index for state root: ${blockView.type.getPathInfo(['stateRoot']).gindex}`);
     console.log(`gen index for balances container in state: ${stateView.type.getPathInfo(['balances']).gindex}`);
-    const genIndexBalancesContainer = concatGindices([
-        blockView.type.getPathInfo(['stateRoot']).gindex,
-        stateView.type.getPathInfo(['balances']).gindex,
-    ]);
-    console.log(`gen index for balances container in block: ${genIndexBalancesContainer}`);
 
-    console.log(
-        `gen index for validator ${validatorIndex} balance in state: ${
-            stateView.type.getPathInfo(['balances', validatorIndex]).gindex
-        }`
-    );
-    const genIndexBalanceInBlock = concatGindices([
-        blockView.type.getPathInfo(['stateRoot']).gindex,
-        stateView.type.getPathInfo(['balances', validatorIndex]).gindex,
-    ]);
-    console.log(`gen index for validator ${validatorIndex} balance in block: ${genIndexBalanceInBlock}`);
-    const balancesTree = tree.getSubtree(genIndexBalancesContainer);
-    console.log(`Balances sub tree root: ${toHex(balancesTree.root)}`);
+    // Process each validator index
+    const results = [];
+    for (const validatorIndex of validatorIndexes) {
+        console.log(`\nProcessing validator ${validatorIndex}...`);
+        const result = generateValidatorProof(tree, blockView, stateView, validatorIndex, slot, client);
+        results.push(result);
+    }
 
-    // * save data to json file
-    let data = transformValidatorData(validatorProof, stateView, validatorIndex, slot, client);
-    let json = JSON.stringify(data, null, 2);
-    // * remove the quote from the value corresponding to 6__exit_epoch and 7__withdrawable_epoch
-    json = json
-        .replace(/"\$6__exit_epoch":\s*"(\d{20})"/, '"$6__exit_epoch": $1')
-        .replace(/"\$7__withdrawable_epoch":\s*"(\d{20})"/, '"$7__withdrawable_epoch": $1');
-    fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
-
-    return {
-        blockRoot: toHex(blockRoot),
-        proof: validatorProof.witnesses.map(toHex),
-        balanceContainerRoot: toHex(balanceContainerRoot),
-        // balancesContainerProof: balancesContainerProof.witnesses.map(toHex),
-        // balanceProof: balanceProof.witnesses.map(toHex),
-        validatorIndex,
-        validatorBalance: validatorBalance,
-        validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
-        // timestamp: client.slotToTS(nextBlockHeader.message.slot),
-        // genIndexValidatorInfo,
-        genIndexBalancesContainer,
-        genIndexBalanceInBlock,
-        timestamp: client.slotToTS(slot + 1),
-    };
+    return results;
 }
 
 function transformValidatorData(validatorProof, stateView, validatorIndex, slot, client) {
@@ -139,4 +148,12 @@ function transformValidatorData(validatorProof, stateView, validatorIndex, slot,
     };
 }
 
-main(42600, 100).then(console.log).catch(console.error);
+// Example usage with multiple validator indexes
+main(233340, [400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419]).then(results => {
+    console.log(`\nGenerated proofs for ${results.length} validators`);
+    results.forEach((result, index) => {
+        console.log(`\nValidator ${result.validatorIndex}:`);
+        console.log(`- Balance: ${result.validatorBalance}`);
+        console.log(`- Proof witnesses: ${result.proof.length}`);
+    });
+}).catch(console.error);
