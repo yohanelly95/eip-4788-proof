@@ -1,0 +1,39 @@
+{
+  "name": "eip-4788-proof",
+  "version": "1.0.0",
+  "description": "A set of scripts and on-chain code to use EIP-4788 block root to prove specific properties of CL blocks.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cd api && node index.js",
+    "dev": "cd api && nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/razor-network/eip-4788-proof.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/razor-network/eip-4788-proof/issues"
+  },
+  "homepage": "https://github.com/razor-network/eip-4788-proof#readme",
+  "dependencies": {
+    "@chainsafe/persistent-merkle-tree": "^1.2.0",
+    "@chainsafe/ssz": "^1.2.1",
+    "@lodestar/api": "^1.31.0",
+    "@lodestar/config": "^1.31.0",
+    "@lodestar/params": "^1.31.0",
+    "@lodestar/types": "^1.31.0",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
