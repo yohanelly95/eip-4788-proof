@@ -12,7 +12,7 @@ const BeaconBlock = ssz.electra.BeaconBlock;
  * @param {string|number} slot
  * @param {number} validatorIndex
  */
-async function main(slot = 'finalized', validatorIndex = 0) {
+export async function generateValidatorProof(slot = 'finalized', validatorIndex = 0) {
     const client = await createClient();
 
     // Get the beacon block for the slot from the beacon node.
@@ -27,7 +27,7 @@ async function main(slot = 'finalized', validatorIndex = 0) {
 
     // Read the state from a local file or fetch it from the beacon node.
     let stateSsz;
-    const stateFilename = `beaconstate_${slot}.ssz`;
+    const stateFilename = `state/beaconstate_${slot}.ssz`;
     if (fs.existsSync(stateFilename)) {
         console.log(`Loading state from file ${stateFilename}`);
         stateSsz = fs.readFileSync(stateFilename);
@@ -103,19 +103,19 @@ async function main(slot = 'finalized', validatorIndex = 0) {
     fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
 
     return {
-        blockRoot: toHex(blockRoot),
+        // blockRoot: toHex(blockRoot),
         proof: validatorProof.witnesses.map(toHex),
-        balanceContainerRoot: toHex(balanceContainerRoot),
+        validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
+        validatorIndex,
+        timestamp: client.slotToTS(slot + 1),
+        // balanceContainerRoot: toHex(balanceContainerRoot),
         // balancesContainerProof: balancesContainerProof.witnesses.map(toHex),
         // balanceProof: balanceProof.witnesses.map(toHex),
-        validatorIndex,
-        validatorBalance: validatorBalance,
-        validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
+        // validatorBalance: validatorBalance,
         // timestamp: client.slotToTS(nextBlockHeader.message.slot),
         // genIndexValidatorInfo,
-        genIndexBalancesContainer,
-        genIndexBalanceInBlock,
-        timestamp: client.slotToTS(slot + 1),
+        // genIndexBalancesContainer,
+        // genIndexBalanceInBlock,
     };
 }
 
@@ -139,4 +139,5 @@ function transformValidatorData(validatorProof, stateView, validatorIndex, slot,
     };
 }
 
-main(42600, 100).then(console.log).catch(console.error);
+// generateValidatorProof(42600, 100).then(console.log).catch(console.error);
+

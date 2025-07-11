@@ -1,25 +1,15 @@
-const express = require("express");
+import express from "express";
+import { config } from "./config.js";
+import { getValidatorProof } from "./handlers/validator.js";
+
 const app = express();
-const { config } = require("./config");
+
+app.use(express.json());
 
 app.get("/", (req, res) => res.send("PONG!"));
 
 // * validator proof
-app.get("/validator/:slot/:validatorIndex", (req, res) => {
-  const { slot, validatorIndex } = req.params;
-
-  // * sanitize the input i.e slot and validatorIndex needs to be a number
-  const slotNumber = Number(slot);
-  const validatorIndexNumber = Number(validatorIndex);
-
-  if (isNaN(slotNumber) || isNaN(validatorIndexNumber)) {
-    return res.status(400).json({ error: "Invalid slot or validator index" });
-  }
-
-  res.send(
-    `Generating proof for validator ${validatorIndexNumber} at slot ${slotNumber}`
-  );
-});
+app.get("/validator/:slot/:validatorIndex", getValidatorProof);
 
 // * balance proof
 app.get("/balance/:slot/:validatorIndex", (req, res) => {

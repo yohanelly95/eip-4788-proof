@@ -19,6 +19,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/razor-network/eip-4788-proof/issues"
   },
