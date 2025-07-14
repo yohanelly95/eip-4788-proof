@@ -100,23 +100,25 @@ export async function generateValidatorProof(slot = 'finalized', validatorIndex 
     json = json
         .replace(/"\$6__exit_epoch":\s*"(\d{20})"/, '"$6__exit_epoch": $1')
         .replace(/"\$7__withdrawable_epoch":\s*"(\d{20})"/, '"$7__withdrawable_epoch": $1');
-    fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
+    // fs.writeFileSync(`validator_${validatorIndex}_${slot}.json`, json);
 
-    return {
-        // blockRoot: toHex(blockRoot),
-        proof: validatorProof.witnesses.map(toHex),
-        validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
-        validatorIndex,
-        timestamp: client.slotToTS(slot + 1),
-        // balanceContainerRoot: toHex(balanceContainerRoot),
-        // balancesContainerProof: balancesContainerProof.witnesses.map(toHex),
-        // balanceProof: balanceProof.witnesses.map(toHex),
-        // validatorBalance: validatorBalance,
-        // timestamp: client.slotToTS(nextBlockHeader.message.slot),
-        // genIndexValidatorInfo,
-        // genIndexBalancesContainer,
-        // genIndexBalanceInBlock,
-    };
+    return json;
+
+    // return {
+    //     // blockRoot: toHex(blockRoot),
+    //     proof: validatorProof.witnesses.map(toHex),
+    //     validator: stateView.validators.type.elementType.toJson(stateView.validators.get(validatorIndex)),
+    //     validatorIndex,
+    //     timestamp: client.slotToTS(slot + 1),
+    //     // balanceContainerRoot: toHex(balanceContainerRoot),
+    //     // balancesContainerProof: balancesContainerProof.witnesses.map(toHex),
+    //     // balanceProof: balanceProof.witnesses.map(toHex),
+    //     // validatorBalance: validatorBalance,
+    //     // timestamp: client.slotToTS(nextBlockHeader.message.slot),
+    //     // genIndexValidatorInfo,
+    //     // genIndexBalancesContainer,
+    //     // genIndexBalanceInBlock,
+    // };
 }
 
 function transformValidatorData(validatorProof, stateView, validatorIndex, slot, client) {
@@ -139,5 +141,4 @@ function transformValidatorData(validatorProof, stateView, validatorIndex, slot,
     };
 }
 
-// generateValidatorProof(42600, 100).then(console.log).catch(console.error);
-
+// generateValidatorProof(268800, 0).then(console.log).catch(console.error);

@@ -39,7 +39,30 @@ export const getValidatorProof = async (req, res) => {
     // Convert any BigInt values to strings before sending response
     const sanitizedProof = convertBigIntToString(proof);
 
-    res.send(sanitizedProof);
+    res.send(JSON.parse(sanitizedProof));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getMultipleValidatorProofs = async (req, res) => {
+  try {
+    const { slot } = req.params;
+    const { indexes } = req.query;
+
+    const slotNumber = Number(slot);
+    const validatorIndexes = indexes.split(",").map((i) => Number(i.trim()));
+
+    const proofs = await Promise.all(
+      validatorIndexes.map((index) => generateValidatorProof(slotNumber, index))
+    );
+
+    const sanitizedProofs = proofs.map((proof) =>
+      convertBigIntToString(JSON.parse(proof))
+    );
+
+    res.send(sanitizedProofs);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Internal server error" });
