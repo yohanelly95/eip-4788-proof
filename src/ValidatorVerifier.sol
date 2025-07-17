@@ -41,9 +41,43 @@ contract ValidatorVerifier {
         );
 
         uint256 gI = gIndex + validatorIndex;
-        bytes32 validatoRoot = SSZ.validatorHashTreeRoot(validator);
+        bytes32 validatorRoot = SSZ.validatorHashTreeRoot(validator);
         bytes32 blockRoot = getParentBlockRoot(ts);
-        return SSZ.verifyProof(validatorProof, blockRoot, validatoRoot, gI);
+        return SSZ.verifyProof(validatorProof, blockRoot, validatorRoot, gI);
+    }
+
+    function proveValidators(
+        bytes32[][] calldata validatorProofs,
+        SSZ.Validator[] calldata validators,
+        uint64[] calldata validatorIndices,
+        uint64 ts
+    ) public view returns (bool[] memory results) {
+        require(
+            validatorProofs.length == validators.length &&
+                validators.length == validatorIndices.length,
+            "Length mismatch"
+        );
+
+        bytes32 blockRoot = getParentBlockRoot(ts);
+        results = new bool[](validators.length);
+
+        for (uint256 i = 0; i < validators.length; i++) {
+            require(
+                validatorIndices[i] < VALIDATOR_REGISTRY_LIMIT,
+                "validator index out of range"
+            );
+
+            uint256 gI = gIndex + validatorIndices[i];
+            bytes32 validatorRoot = SSZ.validatorHashTreeRoot(validators[i]);
+            results[i] = SSZ.verifyProof(
+                validatorProofs[i],
+                blockRoot,
+                validatorRoot,
+                gI
+            );
+        }
+
+        return results;
     }
 
     function getParentBlockRoot(
