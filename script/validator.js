@@ -149,7 +149,7 @@ function transformValidatorData(validatorProof, stateView, validatorIndex, slot,
 }
 
 // Example usage with multiple validator indexes
-main(233340, [330])
+main(294255, [419,420,421,422,423,424,425,426,427,428,429])
     .then((results) => {
         console.log(`\nGenerated proofs for ${results.length} validators`);
         results.forEach((result, index) => {
