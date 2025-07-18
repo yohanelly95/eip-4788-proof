@@ -1,8 +1,7 @@
 import express from "express";
 import { config } from "./config.js";
 import {
-  getMultipleValidatorProofs,
-  getValidatorProof,
+    getMultipleValidatorProofs
 } from "./handlers/validator.js";
 
 const app = express();
@@ -13,10 +12,10 @@ app.get("/", (req, res) => res.send("PONG!"));
 
 // * VALIDATOR PROOFS
 // * single validator proof
-app.get("/validator/:slot/:validatorIndex", getValidatorProof);
+// app.get("/validator/:slot/:validatorIndex", getValidatorProof);
 
 // * multiple validator proofs
-app.get("/validatorMultiple/:slot", getMultipleValidatorProofs);
+app.get("/validator/:slot", getMultipleValidatorProofs);
 
 // * BALANCE PROOFS
 app.get("/balance/:slot/:validatorIndex", getMultipleValidatorProofs);
