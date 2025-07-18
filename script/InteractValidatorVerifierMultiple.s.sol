@@ -23,7 +23,7 @@ contract InteractValidatorVerifierMultiple is Script {
         ValidatorVerifier verifier = ValidatorVerifier(verifierAddress);
 
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, '/script/test-loop.json');
+        string memory path = string.concat(root, '/script/test-off-chain-loop.json');
         string memory json = vm.readFile(path);
 
         console.log('JSON file read successfully');
