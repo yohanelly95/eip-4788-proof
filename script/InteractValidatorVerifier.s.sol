@@ -19,24 +19,93 @@ contract InteractValidatorVerifier is Script {
     }
 
     function run() external {
-        address verifierAddress = address(0x7a56A2B85915ef4DcB4B8a4112C12A75919359d9);
+        address verifierAddress = address(0xf4F8a1B50c27917a20083C877721cF16535c0162);
         ValidatorVerifier verifier = ValidatorVerifier(verifierAddress);
 
-        // Read and parse validator data array from JSON
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, '/script/test-loop.json');
+        string memory path = string.concat(root, '/script/test-off-chain-loop.json');
         string memory json = vm.readFile(path);
-        // console.log("keys", keys.length);
-        bytes memory data = vm.parseJson(json);
-        // bytes memory data = json.parseRaw('$');
-        // uint256 arrayLength = json.readUint("$.length");
-        // console.log('Total validator proofs to verify:', arrayLength);
 
-        // console.log("data", data.length);
-        // console.log("arrayLength", arrayLength);
-        ValidatorData[] memory validatorDataArray = abi.decode(data, (ValidatorData[]));
+        console.log('JSON file read successfully');
 
-        console.log('Total validator proofs to verify:', validatorDataArray.length);
+        uint256 arrayLength = 10;
+
+        ValidatorData[] memory validatorDataArray = new ValidatorData[](arrayLength);
+
+        for (uint256 i = 0; i < arrayLength; i++) {
+            console.log('Parsing validator at index:', i);
+
+            string memory indexStr = vm.toString(i);
+
+            bytes32[] memory proof = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].proof'))),
+                (bytes32[])
+            );
+
+            // Parse validator fields
+            bytes memory pubkey = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.pubkey'))),
+                (bytes)
+            );
+            bytes32 withdrawalCredentials = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.withdrawal_credentials'))),
+                (bytes32)
+            );
+            uint64 effectiveBalance = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.effective_balance'))),
+                (uint64)
+            );
+            bool slashed = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.slashed'))),
+                (bool)
+            );
+            uint64 activationEligibilityEpoch = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.activation_eligibility_epoch'))),
+                (uint64)
+            );
+            uint64 activationEpoch = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.activation_epoch'))),
+                (uint64)
+            );
+            uint64 exitEpoch = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.exit_epoch'))),
+                (uint64)
+            );
+            uint64 withdrawableEpoch = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.withdrawable_epoch'))),
+                (uint64)
+            );
+
+            uint64 validatorIndex = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validatorIndex'))),
+                (uint64)
+            );
+            uint64 timestamp = abi.decode(
+                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].timestamp'))),
+                (uint64)
+            );
+
+            // Construct validator
+            SSZ.Validator memory validator = SSZ.Validator({
+                pubkey: pubkey,
+                withdrawalCredentials: withdrawalCredentials,
+                effectiveBalance: effectiveBalance,
+                slashed: slashed,
+                activationEligibilityEpoch: activationEligibilityEpoch,
+                activationEpoch: activationEpoch,
+                exitEpoch: exitEpoch,
+                withdrawableEpoch: withdrawableEpoch
+            });
+
+            validatorDataArray[i] = ValidatorData({
+                proof: proof,
+                validator: validator,
+                validatorIndex: validatorIndex,
+                timestamp: timestamp
+            });
+
+            console.log('Successfully parsed validator at array index', i);
+        }
 
         vm.startBroadcast();
 
@@ -44,7 +113,8 @@ contract InteractValidatorVerifier is Script {
         for (uint256 i = 0; i < validatorDataArray.length; i++) {
             ValidatorData memory validatorData = validatorDataArray[i];
 
-            console.log('Verifying validator index:', validatorData.validatorIndex);
+            string memory validatorIndexStr = vm.toString(uint256(validatorData.validatorIndex));
+            console.log('Validator Index:', validatorIndexStr);
 
             bool result = verifier.proveValidator(
                 validatorData.proof,
@@ -53,15 +123,16 @@ contract InteractValidatorVerifier is Script {
                 validatorData.timestamp
             );
 
-            console.log('Validator', validatorData.validatorIndex, 'result:', result);
+            console.log('- Verification result:', result);
 
             if (!result) {
-                console.log('FAILED: Validator proof verification failed for index:', validatorData.validatorIndex);
+                console.log('FAILED: Validator proof verification failed for index:', i);
+                console.log('Validator index:', validatorIndexStr);
+                // revert('Failed to verify validator');
             }
         }
 
         console.log('Completed verification of all validator proofs');
-        // The ValidatorProven events will be visible in the transaction logs
         vm.stopBroadcast();
     }
 }

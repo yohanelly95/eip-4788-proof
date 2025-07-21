@@ -8,132 +8,80 @@ import {stdJson} from 'forge-std/StdJson.sol';
 import {Vm} from 'lib/forge-std/src/Vm.sol';
 import {console} from 'forge-std/console.sol';
 
-contract InteractValidatorVerifierMultiple is Script {
+contract InteractValidatorMultipleVerifier is Script {
     using stdJson for string;
 
-    struct ValidatorData {
-        bytes32[] proof;
-        SSZ.Validator validator;
-        uint64 validatorIndex;
-        uint64 timestamp;
-    }
-
     function run() external {
-        address verifierAddress = address(0x7a56A2B85915ef4DcB4B8a4112C12A75919359d9);
+        address verifierAddress = address(0xf4F8a1B50c27917a20083C877721cF16535c0162);
         ValidatorVerifier verifier = ValidatorVerifier(verifierAddress);
 
+        // Read and parse consolidated validator data from JSON
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, '/script/test-off-chain-loop.json');
+        string memory path = string.concat(root, '/script/test-on-chain-loop.json');
         string memory json = vm.readFile(path);
 
-        console.log('JSON file read successfully');
+        // Parse individual fields from JSON
+        bytes32 blockRoot = json.readBytes32('.blockRoot');
+        uint64 timestamp = uint64(json.readUint('.timestamp'));
 
-        uint256 arrayLength = 10;
-        console.log('Processing', arrayLength, 'validators');
+        // Parse validator indices array
+        uint64[] memory validatorIndices = abi.decode(json.parseRaw('.validatorIndices'), (uint64[]));
 
-        ValidatorData[] memory validatorDataArray = new ValidatorData[](arrayLength);
+        // Parse proofs array
+        bytes32[][] memory proofs = abi.decode(json.parseRaw('.proofs'), (bytes32[][]));
 
-        for (uint256 i = 0; i < arrayLength; i++) {
-            console.log('Parsing validator at index:', i);
+        // Parse validators array - need to handle each validator individually
+        uint256 validatorCount = validatorIndices.length;
+        SSZ.Validator[] memory validators = new SSZ.Validator[](validatorCount);
 
-            string memory indexStr = vm.toString(i);
+        for (uint256 i = 0; i < validatorCount; i++) {
+            string memory validatorPath = string.concat('.validators[', vm.toString(i), ']');
 
-            bytes32[] memory proof = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].proof'))),
-                (bytes32[])
-            );
-
-            // Parse validator fields
-            bytes memory pubkey = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.pubkey'))),
-                (bytes)
-            );
-            bytes32 withdrawalCredentials = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.withdrawal_credentials'))),
-                (bytes32)
-            );
-            uint64 effectiveBalance = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.effective_balance'))),
-                (uint64)
-            );
-            bool slashed = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.slashed'))),
-                (bool)
-            );
-            uint64 activationEligibilityEpoch = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.activation_eligibility_epoch'))),
-                (uint64)
-            );
-            uint64 activationEpoch = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.activation_epoch'))),
-                (uint64)
-            );
-            uint64 exitEpoch = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.exit_epoch'))),
-                (uint64)
-            );
-            uint64 withdrawableEpoch = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validator.withdrawable_epoch'))),
-                (uint64)
-            );
-
-            uint64 validatorIndex = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].validatorIndex'))),
-                (uint64)
-            );
-            uint64 timestamp = abi.decode(
-                vm.parseJson(json, string(abi.encodePacked('[', indexStr, '].timestamp'))),
-                (uint64)
-            );
-
-            // Construct validator
-            SSZ.Validator memory validator = SSZ.Validator({
-                pubkey: pubkey,
-                withdrawalCredentials: withdrawalCredentials,
-                effectiveBalance: effectiveBalance,
-                slashed: slashed,
-                activationEligibilityEpoch: activationEligibilityEpoch,
-                activationEpoch: activationEpoch,
-                exitEpoch: exitEpoch,
-                withdrawableEpoch: withdrawableEpoch
+            // Parse pubkey as hex string and convert to bytes
+            bytes memory pubkeyBytes = vm.parseBytes(json.readString(string.concat(validatorPath, '.pubkey')));
+            validators[i] = SSZ.Validator({
+                pubkey: pubkeyBytes,
+                withdrawalCredentials: json.readBytes32(string.concat(validatorPath, '.withdrawal_credentials')),
+                effectiveBalance: uint64(json.readUint(string.concat(validatorPath, '.effective_balance'))),
+                slashed: json.readBool(string.concat(validatorPath, '.slashed')),
+                activationEligibilityEpoch: uint64(
+                    json.readUint(string.concat(validatorPath, '.activation_eligibility_epoch'))
+                ),
+                activationEpoch: uint64(json.readUint(string.concat(validatorPath, '.activation_epoch'))),
+                exitEpoch: uint64(json.readUint(string.concat(validatorPath, '.exit_epoch'))),
+                withdrawableEpoch: uint64(json.readUint(string.concat(validatorPath, '.withdrawable_epoch')))
             });
-
-            validatorDataArray[i] = ValidatorData({
-                proof: proof,
-                validator: validator,
-                validatorIndex: validatorIndex,
-                timestamp: timestamp
-            });
-
-            console.log('Successfully parsed validator at array index', i);
         }
+
+        console.log('Block root:', vm.toString(blockRoot));
+        console.log('Timestamp:', vm.toString(timestamp));
 
         vm.startBroadcast();
 
-        // Loop through all validator proofs
-        for (uint256 i = 0; i < validatorDataArray.length; i++) {
-            ValidatorData memory validatorData = validatorDataArray[i];
-            
-            string memory validatorIndexStr = vm.toString(uint256(validatorData.validatorIndex));
-            console.log('Validator Index:', validatorIndexStr);
-            
-            bool result = verifier.proveValidator(
-                validatorData.proof,
-                validatorData.validator,
-                validatorData.validatorIndex,
-                validatorData.timestamp
-            );
+        // Use proveValidators function to verify all validators at once
+        bool[] memory results = verifier.proveValidators(proofs, validators, validatorIndices, timestamp);
 
-            console.log('- Verification result:', result);
+        vm.stopBroadcast();
 
-            if (!result) {
-                console.log('FAILED: Validator proof verification failed for index:', i);
-                console.log('Validator index:', validatorIndexStr);
-                // revert('Failed to verify validator');
+        // Log results
+        console.log('Verification results:');
+        for (uint256 i = 0; i < results.length; i++) {
+            console.log('Validator index:', vm.toString(validatorIndices[i]));
+            console.log('Result:', results[i]);
+
+            if (!results[i]) {
+                console.log('FAILED: Validator proof verification failed for index:', validatorIndices[i]);
             }
         }
 
-        console.log('Completed verification of all validator proofs');
-        vm.stopBroadcast();
+        // Count successful verifications
+        uint256 successCount = 0;
+        for (uint256 i = 0; i < results.length; i++) {
+            if (results[i]) {
+                successCount++;
+            }
+        }
+
+        console.log('Successfully verified', vm.toString(successCount));
     }
 }
