@@ -38,30 +38,30 @@ contract InteractValidatorVerifier is Script {
 
         console.log('Total validator proofs to verify:', validatorDataArray.length);
 
-        // vm.startBroadcast();
+        vm.startBroadcast();
 
         // Loop through all validator proofs
-        // for (uint256 i = 0; i < validatorDataArray.length; i++) {
-        //     ValidatorData memory validatorData = validatorDataArray[i];
+        for (uint256 i = 0; i < validatorDataArray.length; i++) {
+            ValidatorData memory validatorData = validatorDataArray[i];
 
-        //     console.log('Verifying validator index:', validatorData.validatorIndex);
+            console.log('Verifying validator index:', validatorData.validatorIndex);
 
-        //     bool result = verifier.proveValidator(
-        //         validatorData.proof,
-        //         validatorData.validator,
-        //         validatorData.validatorIndex,
-        //         validatorData.timestamp
-        //     );
+            bool result = verifier.proveValidator(
+                validatorData.proof,
+                validatorData.validator,
+                validatorData.validatorIndex,
+                validatorData.timestamp
+            );
 
-        //     console.log('Validator', validatorData.validatorIndex, 'result:', result);
+            console.log('Validator', validatorData.validatorIndex, 'result:', result);
 
-        //     if (!result) {
-        //         console.log('FAILED: Validator proof verification failed for index:', validatorData.validatorIndex);
-        //     }
-        // }
+            if (!result) {
+                console.log('FAILED: Validator proof verification failed for index:', validatorData.validatorIndex);
+            }
+        }
 
         console.log('Completed verification of all validator proofs');
         // The ValidatorProven events will be visible in the transaction logs
-        // vm.stopBroadcast();
+        vm.stopBroadcast();
     }
 }
