@@ -15,10 +15,10 @@ app.get("/", (req, res) => res.send("PONG!"));
 // app.get("/validator/:slot/:validatorIndex", getValidatorProof);
 
 // * multiple validator proofs
-app.get("/validator/:slot", getMultipleValidatorProofs);
+app.get("/validators/:slot", getMultipleValidatorProofs);
 
 // * BALANCE PROOFS
-app.get("/balance/:slot/:validatorIndex", getMultipleValidatorProofs);
+// app.get("/balance/:slot/:validatorIndex", getMultipleValidatorProofs);
 
 // * WITHDRAWAL PROOFS
 app.get("/withdrawal/:slot/:validatorIndex", (req, res) => {
