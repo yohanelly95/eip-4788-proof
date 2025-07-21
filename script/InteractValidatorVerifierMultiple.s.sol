@@ -57,9 +57,11 @@ contract InteractValidatorMultipleVerifier is Script {
         console.log('Timestamp:', vm.toString(timestamp));
 
         vm.startBroadcast();
-
+        uint256 gasConsumed = gasleft();
         // Use proveValidators function to verify all validators at once
         bool[] memory results = verifier.proveValidators(proofs, validators, validatorIndices, timestamp);
+        uint256 gasUsed = gasConsumed - gasleft();
+        console.log('Gas used:', vm.toString(gasUsed));
 
         vm.stopBroadcast();
 
