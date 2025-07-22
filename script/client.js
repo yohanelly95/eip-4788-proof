@@ -2,7 +2,7 @@ import { getClient } from '@lodestar/api';
 import { config } from '@lodestar/config/default';
 
 export async function createClient() {
-    const baseUrl = process.env.BEACON_NODE_URL;
+    const baseUrl = process.env.BEACON_NODE_URL || "http://138.201.157.91:4002/";
     const client = getClient({ baseUrl, timeoutMs: 60_000 }, { config });
 
     {
