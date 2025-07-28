@@ -30,7 +30,6 @@ export function generateValidatorProof(tree, blockView, stateView, validatorInde
     console.log({ GEN_INDEX_VALIDATOR_INFO: genIndexValidatorInfo.toString() });
 
     const validatorProof = createProof(tree.rootNode, { type: ProofType.single, gindex: genIndexValidatorInfo });
-    console.log(`Validator ${validatorIndex} proof witnesses:`, validatorProof.witnesses.map(toHex));
 
     // Get the balance container root from the state view.
     const balanceContainerRoot = stateView.balances.hashTreeRoot();

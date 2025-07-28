@@ -4,18 +4,18 @@ import {
 
 export const getMultipleValidatorProofs = async (req, res) => {
   try {
-    const { slot } = req.params;
     const { indexes } = req.query;
 
-    const slotNumber = Number(slot);
+    if (!indexes) {
+      return res.status(400).json({ error: "Missing indexes query parameter" });
+    }
+
     const validatorIndexes = indexes.split(",").map((i) => Number(i.trim()));
 
     const proofs = await generateMultipleValidatorProofsWrapper(
-      slotNumber,
       validatorIndexes
     );
-    console.log(proofs);
-    // The wrapper already returns properly formatted data
+
     res.json(proofs);
   } catch (error) {
     console.error(error);

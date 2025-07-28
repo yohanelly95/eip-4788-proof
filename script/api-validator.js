@@ -7,6 +7,28 @@ import { generateValidatorProof } from './validator.js';
 const BeaconState = ssz.electra.BeaconState;
 const BeaconBlock = ssz.electra.BeaconBlock;
 
+/**
+ * Fetch the latest slot from beacon chain headers
+ * @param {any} client - Beacon client
+ * @returns {Promise<number>} Latest slot number
+ */
+async function getLatestSlot(client) {
+    console.log('Fetching latest slot from beacon headers...');
+    const headersRes = await client.beacon.getBlockHeaders();
+    if (!headersRes.ok) {
+        throw headersRes.error;
+    }
+    
+    const headers = headersRes.value();
+    if (!headers || headers.length === 0) {
+        throw new Error('No headers found');
+    }
+    
+    const latestSlot = Number(headers[0].header.message.slot);
+    console.log(`Latest slot: ${latestSlot}, using slot ${latestSlot - 1} for SSZ`);
+    return latestSlot - 1;
+}
+
 
 const convertBigIntToString = (obj) => {
     if (typeof obj === "bigint") {
@@ -120,11 +142,14 @@ function transformValidatorDataForAPI(validatorProof, stateView, validatorIndex,
 
 /**
  * Generate proofs for multiple validators - API wrapper
- * @param {string|number} slot 
  * @param {number[]} validatorIndexes 
  */
-export async function generateMultipleValidatorProofsWrapper(slot, validatorIndexes) {
-    const client = await createClient();
+export async function generateMultipleValidatorProofsWrapper(validatorIndexes) {
+    try{
+        const client = await createClient();
+    
+    // Fetch the latest slot from beacon headers
+    const slot = await getLatestSlot(client);
 
     // Get the beacon block for the slot from the beacon node.
     console.log(`Fetching block for slot ${slot} from the beacon node`);
@@ -153,7 +178,7 @@ export async function generateMultipleValidatorProofsWrapper(slot, validatorInde
         if (!fs.existsSync('state')) {
             fs.mkdirSync('state');
         }
-        
+
         fs.writeFileSync(stateFilename, stateRes.ssz());
         stateSsz = stateRes.ssz();
     }
@@ -209,4 +234,8 @@ export async function generateMultipleValidatorProofsWrapper(slot, validatorInde
     };
     
     return convertBigIntToString(consolidatedResult);
+    } catch(error){
+        console.error(error);
+        return { error: "Internal server error" };
+    }
 }

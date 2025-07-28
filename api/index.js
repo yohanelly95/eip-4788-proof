@@ -15,7 +15,7 @@ app.get("/", (req, res) => res.send("PONG!"));
 // app.get("/validator/:slot/:validatorIndex", getValidatorProof);
 
 // * multiple validator proofs
-app.get("/validators/:slot", getMultipleValidatorProofs);
+app.get("/validators", getMultipleValidatorProofs);
 
 // * BALANCE PROOFS
 // app.get("/balance/:slot/:validatorIndex", getMultipleValidatorProofs);
